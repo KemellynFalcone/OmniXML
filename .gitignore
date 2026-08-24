@@ -1,0 +1,32 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+.pytest_cache/
+.venv/
+venv/
+
+# PyInstaller
+build/
+dist/
+*.log
+
+# IDE / OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Arquivos fiscais / dados de clientes
+*.xml
+*.txt
+!requirements.txt
+!requirements-dev.txt
+*.csv
+*.xlsx
+*.xls
+
+# Segredos
+.env
+.env.*
+!.env.example

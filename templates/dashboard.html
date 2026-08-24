@@ -1,0 +1,1104 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OmniXML - Auditoria Fiscal</title>
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://code.jquery.com/jquery-3.7.0.min.js"></script>
+    
+    <link rel="stylesheet" href="https://cdn.datatables.net/1.13.6/css/dataTables.tailwindcss.min.css">
+    <script src="https://cdn.datatables.net/1.13.6/js/jquery.dataTables.min.js"></script>
+    <script src="https://cdn.datatables.net/1.13.6/js/dataTables.tailwindcss.min.js"></script>
+    <script src="https://cdn.datatables.net/buttons/2.4.1/js/dataTables.buttons.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    <script src="https://cdn.datatables.net/buttons/2.4.1/js/buttons.html5.min.js"></script>
+
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;900&display=swap');
+        body { font-family: 'Inter', sans-serif; background-color: #f8fafc; }
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
+        ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .dataTables_wrapper .dataTables_length select, .dataTables_wrapper .dataTables_filter input { background-color: #ffffff; border: 1px solid #e2e8f0; border-radius: 0.5rem; padding: 0.35rem 0.75rem; color: #334155; font-size: 0.875rem; outline: none; transition: border-color 0.2s; }
+        .dataTables_wrapper .dataTables_filter input:focus { border-color: #3b82f6; box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1); }
+        table.dataTable tbody tr { transition: background-color 0.15s; border-bottom: 1px solid #f1f5f9; }
+        table.dataTable tbody tr:hover { background-color: #f8fafc !important; }
+        table.dataTable thead th { border-bottom: 2px solid #e2e8f0 !important; color: #64748b; font-weight: 600; text-transform: uppercase; font-size: 0.75rem; letter-spacing: 0.05em; padding: 1rem 0.75rem; }
+        .dt-buttons .dt-button { background-color: #f1f5f9; color: #475569; border: 1px solid #cbd5e1; padding: 0.375rem 0.75rem; border-radius: 0.375rem; font-size: 0.75rem; font-weight: 600; margin-right: 0.5rem; margin-bottom: 1rem; cursor: pointer; transition: all 0.2s; display: inline-flex; align-items: center; gap: 0.25rem; }
+        .dt-buttons .dt-button:hover { background-color: #e2e8f0; color: #1e293b; }
+        .kpi-card { transition: transform 0.2s ease, box-shadow 0.2s ease; cursor: pointer; }
+        .kpi-card:hover { transform: translateY(-2px); box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1); }
+        .tab-btn.active { background-color: #2563eb; color: white; }
+        .tab-btn.active svg { color: white; }
+        .sidebar-collapsed .tab-btn { justify-content: center; padding-left: 0; padding-right: 0; }
+        .sidebar-collapsed .tab-btn svg { margin: 0; }
+        #pdf-container { background: #f8fafc; padding: 10px; }
+        
+        .progress-container { width: 100%; background-color: #e2e8f0; border-radius: 9999px; height: 0.5rem; overflow: hidden; margin-top: 0.5rem; display: none; }
+        .progress-bar { background-color: #3b82f6; height: 100%; width: 0%; transition: width 0.3s ease; }
+    </style>
+</head>
+<body class="text-slate-800 flex h-screen overflow-hidden antialiased">
+
+    <!-- MODAL DE DETALHES DO PRODUTO -->
+    <div id="modalProduto" class="fixed inset-0 z-50 hidden flex items-center justify-center bg-slate-900/50 backdrop-blur-sm transition-opacity">
+        <div class="bg-white rounded-xl shadow-2xl w-full max-w-lg p-6 transform scale-95 opacity-0 transition-all duration-300" id="modalProdutoContent">
+            <div class="flex justify-between items-center border-b border-slate-100 pb-4 mb-4">
+                <h3 class="text-lg font-bold text-slate-800 flex items-center gap-2">
+                    <svg class="w-5 h-5 text-emerald-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                    Raio-X da Tributação
+                </h3>
+                <button onclick="fecharModalProduto()" class="text-slate-400 hover:text-slate-600 focus:outline-none">
+                    <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
+                </button>
+            </div>
+            <div class="space-y-4">
+                <div class="grid grid-cols-2 gap-4">
+                    <div class="bg-slate-50 p-3 rounded-lg border border-slate-100">
+                        <span class="block text-xs font-bold text-slate-400 uppercase">Cód. Sistema</span>
+                        <span class="block text-sm font-mono font-bold text-slate-700 mt-1" id="mod-prod-cod"></span>
+                    </div>
+                    <div class="bg-slate-50 p-3 rounded-lg border border-slate-100">
+                        <span class="block text-xs font-bold text-slate-400 uppercase">NCM</span>
+                        <span class="block text-sm font-mono font-bold text-blue-600 mt-1" id="mod-prod-ncm"></span>
+                    </div>
+                </div>
+                <div class="bg-slate-50 p-3 rounded-lg border border-slate-100">
+                    <span class="block text-xs font-bold text-slate-400 uppercase">Descrição do Produto</span>
+                    <span class="block text-sm font-semibold text-slate-700 mt-1" id="mod-prod-desc"></span>
+                </div>
+                <div class="grid grid-cols-2 gap-4">
+                    <div class="bg-slate-50 p-3 rounded-lg border border-slate-100">
+                        <span class="block text-xs font-bold text-slate-400 uppercase">CFOP</span>
+                        <span class="block text-sm font-mono font-bold text-slate-700 mt-1" id="mod-prod-cfop"></span>
+                    </div>
+                    <div class="bg-slate-50 p-3 rounded-lg border border-slate-100">
+                        <span class="block text-xs font-bold text-slate-400 uppercase">CST Principal</span>
+                        <span class="block text-sm font-mono font-bold text-slate-700 mt-1" id="mod-prod-cst"></span>
+                    </div>
+                </div>
+                <div class="bg-amber-50 p-4 rounded-lg border border-amber-100 mt-4" id="mod-prod-alert-box">
+                    <span class="block text-xs font-bold uppercase mb-1" id="mod-prod-status"></span>
+                    <p class="text-sm" id="mod-prod-motivo"></p>
+                </div>
+            </div>
+            <div class="mt-6 text-right">
+                <button onclick="fecharModalProduto()" class="bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold py-2 px-6 rounded-lg transition-colors">Entendi</button>
+            </div>
+        </div>
+    </div>
+
+    <aside id="main-sidebar" class="w-[280px] bg-[#0f172a] text-slate-300 flex flex-col shadow-2xl z-20 flex-shrink-0 transition-all duration-300 ease-in-out">
+        <div class="p-6 border-b border-slate-800 flex flex-col gap-2">
+            <div class="flex items-center gap-3 overflow-hidden justify-center lg:justify-start">
+                <svg viewBox="0 0 100 100" class="w-10 h-10 flex-shrink-0" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M25 20C25 14.477 29.477 10 35 10H55L75 30V80C75 85.523 70.523 90 65 90H35C29.477 90 25 85.523 25 80V20Z" stroke="#3b82f6" stroke-width="6" stroke-linejoin="round"/>
+                    <path d="M55 10V30H75" stroke="#3b82f6" stroke-width="6" stroke-linejoin="round"/>
+                    <path d="M40 45L33 50L40 55M60 45L67 50L60 55" stroke="#3b82f6" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+                    <path d="M53 42L47 58" stroke="#3b82f6" stroke-width="5" stroke-linecap="round"/>
+                    <path d="M35 68H65M35 78H50" stroke="#3b82f6" stroke-width="5" stroke-linecap="round"/>
+                    <path d="M60 90L70 100L95 70" stroke="#0f172a" stroke-width="18" stroke-linecap="round" stroke-linejoin="round"/>
+                    <path d="M60 90L70 100L95 70" stroke="#10b981" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+                <div class="flex flex-col sidebar-text whitespace-nowrap">
+                    <div class="flex items-baseline leading-none tracking-tight">
+                        <span class="text-[1.3rem] font-light text-white">Omni</span>
+                        <span class="text-[1.3rem] font-black text-[#3b82f6]">XML</span>
+                    </div>
+                    <span class="text-[0.60rem] text-[#8ba8e6] font-bold uppercase tracking-[0.15em] mt-1">Auditoria Fiscal</span>
+                </div>
+            </div>
+        </div>
+        
+        <nav class="flex-1 px-3 py-4 space-y-1 overflow-y-auto no-scrollbar">
+            <button onclick="mudarAba('tab-resumo', this)" title="Dashboard Geral" class="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all tab-btn active group text-sm font-medium">
+                <svg class="h-5 w-5 flex-shrink-0 text-slate-400 group-hover:text-white transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" /></svg>
+                <span class="sidebar-text whitespace-nowrap">Dashboard Geral</span>
+            </button>
+            
+            <div class="text-xs font-bold text-slate-500 uppercase tracking-wider mt-6 mb-2 pl-3 sidebar-text whitespace-nowrap">Módulos de Operação</div>
+            <button onclick="mudarAba('tab-nfce', this)" id="btn-tab-nfce" title="Gestão NFC-e (Varejo)" class="w-full flex items-center gap-3 px-3 py-2.5 hover:bg-slate-800 hover:text-white rounded-lg transition-all tab-btn text-sm font-medium group">
+                <svg class="h-5 w-5 flex-shrink-0 text-purple-400 group-hover:text-white transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" /></svg>
+                <span class="sidebar-text whitespace-nowrap">Gestão NFC-e (Varejo)</span>
+            </button>
+            <button onclick="mudarAba('tab-nfe', this)" id="btn-tab-nfe" title="Gestão NF-e (Ent/Sai)" class="w-full flex items-center gap-3 px-3 py-2.5 hover:bg-slate-800 hover:text-white rounded-lg transition-all tab-btn text-sm font-medium group">
+                <svg class="h-5 w-5 flex-shrink-0 text-blue-400 group-hover:text-white transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" /></svg>
+                <span class="sidebar-text whitespace-nowrap">Gestão NF-e (Ent/Sai)</span>
+            </button>
+
+            <div class="text-xs font-bold text-slate-500 uppercase tracking-wider mt-6 mb-2 pl-3 sidebar-text whitespace-nowrap">Apurações Fiscais</div>
+            <button onclick="mudarAba('tab-cfop', this)" title="Apuração CFOP" class="w-full flex items-center gap-3 px-3 py-2 hover:bg-slate-800 hover:text-white rounded-lg transition-all tab-btn text-sm group">
+                <svg class="h-4 w-4 flex-shrink-0 text-slate-500 group-hover:text-slate-300" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" /></svg>
+                <span class="sidebar-text whitespace-nowrap">Apuração CFOP</span>
+            </button>
+            <button onclick="mudarAba('tab-cst', this)" title="Apuração CST/CSOSN" class="w-full flex items-center gap-3 px-3 py-2 hover:bg-slate-800 hover:text-white rounded-lg transition-all tab-btn text-sm group">
+                <svg class="h-4 w-4 flex-shrink-0 text-slate-500 group-hover:text-slate-300" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 3.055A9.001 9.001 0 1020.945 13H11V3.055z" /><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.488 9H15V3.512A9.025 9.025 0 0120.488 9z" /></svg>
+                <span class="sidebar-text whitespace-nowrap">Apuração CST/CSOSN</span>
+            </button>
+            <button onclick="mudarAba('tab-serie', this)" title="Resumo por Série" class="w-full flex items-center gap-3 px-3 py-2 hover:bg-slate-800 hover:text-white rounded-lg transition-all tab-btn text-sm group">
+                <svg class="h-4 w-4 flex-shrink-0 text-slate-500 group-hover:text-slate-300" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4" /></svg>
+                <span class="sidebar-text whitespace-nowrap">Resumo por Série</span>
+            </button>
+            
+            <div class="text-xs font-bold text-slate-500 uppercase tracking-wider mt-6 mb-2 pl-3 sidebar-text whitespace-nowrap">Inteligência & Diagnóstico</div>
+            
+            <button onclick="mudarAba('tab-sped', this)" id="btn-tab-sped" title="Confronto SPED Fiscal" class="w-full flex items-center gap-3 px-3 py-2 hover:bg-slate-800 hover:text-white rounded-lg transition-all tab-btn text-sm group">
+                <svg class="h-4 w-4 flex-shrink-0 text-blue-400 group-hover:text-blue-300" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7v8a2 2 0 002 2h6M8 7V5a2 2 0 012-2h4.586a1 1 0 01.707.293l4.414 4.414a1 1 0 01.293.707V15a2 2 0 01-2 2h-2M8 7H6a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2v-2" /></svg>
+                <span class="sidebar-text whitespace-nowrap">Confronto SPED Fiscal</span>
+            </button>
+            
+            <button onclick="mudarAba('tab-pis-cofins', this)" id="btn-tab-piscofins" title="Auditoria PIS/COFINS" class="w-full flex items-center gap-3 px-3 py-2 hover:bg-slate-800 hover:text-white rounded-lg transition-all tab-btn text-sm group">
+                <svg class="h-4 w-4 flex-shrink-0 text-indigo-400 group-hover:text-indigo-300" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                <span class="sidebar-text whitespace-nowrap">Auditoria PIS/COFINS</span>
+            </button>
+
+            <button onclick="mudarAba('tab-auditoria', this)" id="btn-tab-auditoria" title="Validação Cruzada" class="w-full flex items-center gap-3 px-3 py-2 hover:bg-slate-800 hover:text-white rounded-lg transition-all tab-btn text-sm group">
+                <svg class="h-4 w-4 flex-shrink-0 text-orange-400 group-hover:text-orange-300" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" /></svg>
+                <span class="sidebar-text whitespace-nowrap">Validação Cruzada</span>
+            </button>
+
+            <button onclick="mudarAba('tab-produtos', this)" title="Validação de Produtos" class="w-full flex items-center gap-3 px-3 py-2 hover:bg-slate-800 hover:text-white rounded-lg transition-all tab-btn text-sm group">
+                <svg class="h-4 w-4 flex-shrink-0 text-emerald-400 group-hover:text-emerald-300" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7v8 4v10M4 7v10l8 4" /></svg>
+                <span class="sidebar-text whitespace-nowrap">Validação de Produtos</span>
+            </button>
+
+            <button onclick="mudarAba('tab-erros', this)" id="btn-tab-erros" title="Arquivos Inválidos/Erros" class="w-full flex items-center gap-3 px-3 py-2 hover:bg-slate-800 hover:text-white rounded-lg transition-all tab-btn text-sm group">
+                <svg class="h-4 w-4 flex-shrink-0 text-rose-400 group-hover:text-rose-300" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                <span class="sidebar-text whitespace-nowrap">Arquivos com Erro</span>
+            </button>
+        </nav>
+        
+        <div class="p-4 border-t border-slate-800">
+            <div class="bg-slate-800 rounded-lg p-3 text-center sidebar-text transition-all duration-300">
+                <div class="text-xs text-slate-400">Auditoria inteligente<br>para decisões seguras.</div>
+                <div class="text-[10px] mt-2 pt-2 border-t border-slate-700 text-slate-500 uppercase tracking-wider">
+                    Desenvolvido por <strong class="text-blue-400">Kasfalcone</strong>
+                </div>
+            </div>
+            <div id="footer-collapsed" class="hidden text-center">
+                <span class="text-[10px] text-blue-500 font-black uppercase" title="Desenvolvido por Kasfalcone">KF</span>
+            </div>
+        </div>
+    </aside>
+
+    <main class="flex-1 flex flex-col h-screen overflow-hidden relative">
+        <header class="bg-white shadow-sm border-b border-slate-200 px-6 py-4 flex justify-between items-center z-10 sticky top-0">
+            <div class="flex items-center gap-4">
+                <button onclick="toggleSidebar()" class="p-2 rounded-lg hover:bg-slate-100 text-slate-500 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500" title="Recolher Menu">
+                    <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h7" /></svg>
+                </button>
+                
+                <div class="w-10 h-10 bg-slate-100 rounded-lg flex items-center justify-center border border-slate-200">
+                    <svg class="w-6 h-6 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" /></svg>
+                </div>
+                <div class="flex-1">
+                    <h2 class="text-xl font-bold text-slate-800 leading-none" id="nomeEmpresaHeader">Empresa não identificada</h2>
+                    <div id="statusAuditoria" class="text-xs font-medium text-slate-500 mt-1 flex items-center gap-1.5">
+                        <span class="w-2 h-2 rounded-full bg-amber-400 animate-pulse"></span> Aguardando importação de dados
+                    </div>
+                    <div class="progress-container" id="progressContainer">
+                        <div class="progress-bar" id="progressBar"></div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="flex items-center gap-3">
+                <button onclick="exportarRelatorioGeral()" id="btnExportarGeral" class="hidden bg-emerald-50 hover:bg-emerald-100 text-emerald-700 font-semibold py-2 px-4 rounded-lg transition-all shadow-sm border border-emerald-200 flex items-center gap-2 text-sm">
+                    <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
+                    Exportar Relatório Geral (.xlsx)
+                </button>
+                <button onclick="limparESairCliente()" id="btnTrocarCliente" class="hidden bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold py-2 px-4 rounded-lg transition-all shadow-sm border border-slate-300 flex items-center gap-2 text-sm">
+                    <svg class="h-4 w-4 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" /></svg>
+                    Selecionar Outro Cliente
+                </button>
+            </div>
+        </header>
+
+        <div class="flex-1 overflow-y-auto p-6 md:p-8 bg-slate-50" id="area-pdf">
+            
+            <div id="faixa-resumo-auditoria" class="bg-white rounded-xl shadow-sm border border-slate-200 p-4 mb-6 flex flex-wrap lg:flex-nowrap items-center justify-between gap-4 hidden">
+                <div class="flex items-center gap-3">
+                    <div class="bg-blue-50 p-2 rounded-lg"><svg class="w-5 h-5 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg></div>
+                    <div><p class="text-xs text-slate-500 font-bold uppercase tracking-wider">Total Lido</p><p class="text-lg font-black text-slate-800 leading-none mt-1" id="resumo-total">0</p></div>
+                </div>
+                <div class="hidden lg:block w-px h-8 bg-slate-200"></div>
+                
+                <div class="flex items-center gap-3">
+                    <div class="bg-emerald-50 p-2 rounded-lg"><svg class="w-5 h-5 text-emerald-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" /></svg></div>
+                    <div><p class="text-xs text-slate-500 font-bold uppercase tracking-wider">Válidos</p><p class="text-lg font-black text-emerald-600 leading-none mt-1" id="resumo-validos">0</p></div>
+                </div>
+                <div class="hidden lg:block w-px h-8 bg-slate-200"></div>
+                
+                <div onclick="filtrarCancelados()" class="flex items-center gap-3 cursor-pointer hover:bg-slate-50 p-2 -mx-2 rounded-xl transition-colors group" title="Clique para ver a lista de cancelados">
+                    <div class="bg-slate-100 group-hover:bg-slate-200 p-2 rounded-lg transition-colors"><svg class="w-5 h-5 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" /></svg></div>
+                    <div><p class="text-xs text-slate-500 font-bold uppercase tracking-wider flex items-center gap-1 group-hover:text-blue-600">Cancelados <svg class="w-3 h-3 opacity-0 group-hover:opacity-100 transition-opacity" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" /></svg></p><p class="text-lg font-black text-slate-600 leading-none mt-1 group-hover:text-blue-600" id="resumo-cancelados">0</p></div>
+                </div>
+                <div class="hidden lg:block w-px h-8 bg-slate-200"></div>
+                
+                <div onclick="filtrarInconsistencias()" class="flex items-center gap-3 cursor-pointer hover:bg-orange-50 p-2 -mx-2 rounded-xl transition-colors group" title="Clique para ver as falhas na auditoria cruzada">
+                    <div class="bg-orange-50 group-hover:bg-orange-100 p-2 rounded-lg transition-colors"><svg class="w-5 h-5 text-orange-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg></div>
+                    <div><p class="text-xs text-orange-500 font-bold uppercase tracking-wider flex items-center gap-1 group-hover:text-orange-700">Divergências <svg class="w-3 h-3 opacity-0 group-hover:opacity-100 transition-opacity" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" /></svg></p><p class="text-lg font-black text-orange-600 leading-none mt-1 group-hover:text-orange-700" id="resumo-inconsistencias">0</p></div>
+                </div>
+                <div class="hidden lg:block w-px h-8 bg-slate-200"></div>
+
+                <div onclick="filtrarErros()" class="flex items-center gap-3 cursor-pointer hover:bg-rose-50 p-2 -mx-2 rounded-xl transition-colors group" title="Clique para ver os arquivos corrompidos ou inválidos">
+                    <div class="bg-rose-50 group-hover:bg-rose-100 p-2 rounded-lg transition-colors"><svg class="w-5 h-5 text-rose-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg></div>
+                    <div><p class="text-xs text-rose-500 font-bold uppercase tracking-wider flex items-center gap-1 group-hover:text-rose-700">Com Falhas <svg class="w-3 h-3 opacity-0 group-hover:opacity-100 transition-opacity" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" /></svg></p><p class="text-lg font-black text-rose-600 leading-none mt-1 group-hover:text-rose-700" id="resumo-erros">0</p></div>
+                </div>
+            </div>
+
+            <!-- PDF WRAPPER -->
+            <div id="pdf-container">
+                <div id="tab-resumo" class="tab-content block pb-10">
+                    
+                    <div id="card-boas-vindas" class="bg-gradient-to-r from-blue-900 to-slate-900 rounded-2xl p-8 mb-8 text-white shadow-xl flex flex-col md:flex-row justify-between items-center gap-6">
+                        <div>
+                            <span class="bg-blue-500/30 text-blue-300 text-xs font-bold uppercase tracking-widest px-3 py-1 rounded-full border border-blue-400/30">Ambiente Pronto</span>
+                            <h3 class="text-2xl font-black mt-3">Bem-vindo ao OmniXML Fiscal</h3>
+                            <p class="text-slate-300 text-sm mt-1 max-w-xl">Faça a importação dos arquivos XML locais para iniciar a auditoria completa de entradas, saídas, cupons e confrontos com o SPED.</p>
+                        </div>
+                        <button onclick="iniciarProcessamento()" id="btnProcessarDash" class="bg-blue-600 hover:bg-blue-500 text-white font-bold py-3.5 px-8 rounded-xl transition-all shadow-lg flex items-center gap-3 text-base flex-shrink-0">
+                            <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" /></svg>
+                            Importar e Auditar XMLs
+                        </button>
+                    </div>
+
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+                        <div onclick="filtrarPeloCard('nfe_entrada')" class="bg-white rounded-xl border border-blue-100 shadow-sm kpi-card relative overflow-hidden group">
+                            <div class="absolute top-0 left-0 w-1 h-full bg-blue-500"></div>
+                            <div class="p-5">
+                                <div class="flex justify-between items-start mb-4">
+                                    <div>
+                                        <div class="flex items-center gap-2 mb-1">
+                                            <div class="p-1.5 bg-blue-50 rounded text-blue-600"><svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 14l-7 7m0 0l-7-7m7 7V3" /></svg></div>
+                                            <h4 class="font-bold text-slate-700">NF-e Entradas (Compras)</h4>
+                                        </div>
+                                        <span class="text-xs font-medium text-slate-400 ml-8">Mod. 55</span>
+                                    </div>
+                                </div>
+                                <div class="ml-1 pl-7">
+                                    <div class="text-3xl font-black text-slate-800 mb-1" id="dash-nfe-ent-qtd">0</div>
+                                    <div class="text-sm text-slate-500 mb-4">notas processadas</div>
+                                    <div class="pt-4 border-t border-slate-100">
+                                        <div class="text-xs text-slate-400 uppercase font-bold tracking-wider mb-1">Custo Total (Entradas)</div>
+                                        <div class="text-xl font-bold text-blue-600" id="dash-nfe-ent-val">R$ 0,00</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div onclick="filtrarPeloCard('nfe_saida')" class="bg-white rounded-xl border border-emerald-100 shadow-sm kpi-card relative overflow-hidden group">
+                            <div class="absolute top-0 left-0 w-1 h-full bg-emerald-500"></div>
+                            <div class="p-5">
+                                <div class="flex justify-between items-start mb-4">
+                                    <div>
+                                        <div class="flex items-center gap-2 mb-1">
+                                            <div class="p-1.5 bg-emerald-50 rounded text-emerald-600"><svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 10l7-7m0 0l7 7m-7-7v18" /></svg></div>
+                                            <h4 class="font-bold text-slate-700">NF-e Saídas (Faturamento)</h4>
+                                        </div>
+                                        <span class="text-xs font-medium text-slate-400 ml-8">Mod. 55</span>
+                                    </div>
+                                </div>
+                                <div class="ml-1 pl-7">
+                                    <div class="text-3xl font-black text-slate-800 mb-1" id="dash-nfe-sai-qtd">0</div>
+                                    <div class="text-sm text-slate-500 mb-4">notas processadas</div>
+                                    <div class="pt-4 border-t border-slate-100">
+                                        <div class="flex justify-between text-xs mb-1"><span class="text-slate-500">Bruto Apurado:</span> <span class="font-medium text-slate-700" id="dash-nfe-sai-bruto">R$ 0,00</span></div>
+                                        <div class="flex justify-between text-xs mb-3"><span class="text-slate-500">Cancelamentos:</span> <span class="font-medium text-red-500" id="dash-nfe-sai-canc">R$ 0,00</span></div>
+                                        <div class="text-xs text-emerald-600/80 uppercase font-bold tracking-wider mb-1">Faturamento Líquido</div>
+                                        <div class="text-xl font-bold text-emerald-600" id="dash-nfe-sai-liq">R$ 0,00</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div onclick="filtrarPeloCard('nfce')" class="bg-white rounded-xl border border-purple-100 shadow-sm kpi-card relative overflow-hidden group">
+                            <div class="absolute top-0 left-0 w-1 h-full bg-purple-500"></div>
+                            <div class="p-5">
+                                <div class="flex justify-between items-start mb-4">
+                                    <div>
+                                        <div class="flex items-center gap-2 mb-1">
+                                            <div class="p-1.5 bg-purple-50 rounded text-purple-600"><svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" /></svg></div>
+                                            <h4 class="font-bold text-slate-700">NFC-e Saídas (Varejo)</h4>
+                                        </div>
+                                        <span class="text-xs font-medium text-slate-400 ml-8">Mod. 65</span>
+                                    </div>
+                                </div>
+                                <div class="ml-1 pl-7">
+                                    <div class="flex justify-between items-end mb-1">
+                                        <div class="text-3xl font-black text-slate-800" id="dash-nfce-qtd">0</div>
+                                        <div class="text-xs font-bold text-red-500 bg-red-50 px-2 py-1 rounded" id="dash-nfce-canc-qtd">0 cancelados</div>
+                                    </div>
+                                    <div class="text-sm text-slate-500 mb-4">cupons lidos</div>
+                                    <div class="pt-4 border-t border-slate-100">
+                                        <div class="flex justify-between text-xs mb-1"><span class="text-slate-500">Bruto Apurado:</span> <span class="font-medium text-slate-700" id="dash-nfce-bruto">R$ 0,00</span></div>
+                                        <div class="flex justify-between text-xs mb-3"><span class="text-slate-500">Cancelamentos:</span> <span class="font-medium text-red-500" id="dash-nfce-canc-val">R$ 0,00</span></div>
+                                        <div class="text-xs text-purple-600/80 uppercase font-bold tracking-wider mb-1">Faturamento Líquido</div>
+                                        <div class="text-xl font-bold text-purple-600" id="dash-nfce-liq">R$ 0,00</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200 mb-6 mx-4 md:mx-0">
+                        <h4 class="font-bold text-slate-700 mb-6 flex items-center gap-2">
+                            <svg class="w-5 h-5 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" /></svg>
+                            Evolução do Faturamento Diário (Saídas)
+                        </h4>
+                        <div class="h-64 w-full">
+                            <canvas id="graficoEvolucao"></canvas>
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mx-4 md:mx-0">
+                        <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200 flex flex-col">
+                            <h4 class="font-bold text-slate-700 mb-6 flex items-center gap-2">
+                                <svg class="w-5 h-5 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 3.055A9.001 9.001 0 1020.945 13H11V3.055z" /></svg>
+                                Distribuição por CFOP (Vendas)
+                            </h4>
+                            <div class="flex-1 flex justify-center items-center min-h-[280px]">
+                                <canvas id="graficoCFOP"></canvas>
+                            </div>
+                        </div>
+                        <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200 flex flex-col">
+                            <h4 class="font-bold text-slate-700 mb-6 flex items-center gap-2">
+                                <svg class="w-5 h-5 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 3.055A9.001 9.001 0 1020.945 13H11V3.055z" /></svg>
+                                Distribuição por CST/CSOSN (Vendas)
+                            </h4>
+                            <div class="flex-1 flex justify-center items-center min-h-[280px]">
+                                <canvas id="graficoCST"></canvas>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- SPED FISCAL -->
+            <div id="tab-sped" class="tab-content hidden">
+                <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
+                    <div class="flex justify-between items-center mb-6 border-b border-slate-100 pb-4">
+                        <div class="flex items-center gap-3">
+                            <div class="p-2 bg-blue-100 rounded-lg text-blue-600">
+                                <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                            </div>
+                            <div>
+                                <h3 class="text-xl font-bold text-slate-800">Confronto: Sistema vs XMLs</h3>
+                                <p class="text-sm text-slate-500">Validação entre o arquivo SPED Fiscal (.txt) e o valor financeiro apurado diretamente nos XMLs autorizados.</p>
+                            </div>
+                        </div>
+                        <div class="flex gap-2">
+                            <button onclick="confrontarSPED()" class="bg-blue-50 hover:bg-blue-100 text-blue-700 font-semibold py-2 px-4 rounded-lg transition-all shadow-sm border border-blue-200 flex items-center gap-2 text-sm">
+                                <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" /></svg>
+                                Importar SPED (.txt)
+                            </button>
+                            <button onclick="mostrarDivergencias()" id="btnDivergencias" class="hidden bg-slate-800 hover:bg-slate-900 text-white font-semibold py-2 px-5 rounded-lg transition-all shadow-md flex items-center gap-2 text-sm">
+                                <svg class="h-4 w-4 text-orange-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
+                                Detalhar Divergências
+                            </button>
+                        </div>
+                    </div>
+
+                    <div id="placeholder-sped" class="text-center py-16">
+                        <svg class="mx-auto h-16 w-16 text-slate-200 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
+                        <h3 class="text-xl font-bold text-slate-700">Arquivo SPED não importado</h3>
+                        <p class="mt-2 text-sm text-slate-500 mb-8 max-w-lg mx-auto">Para fazer a auditoria e comparar se o sistema gerou os valores corretamente, importe o arquivo de texto (.txt) do SPED Fiscal.</p>
+                    </div>
+
+                    <div id="resultado-sped" class="hidden space-y-6">
+                        <div class="bg-slate-50 p-6 rounded-xl border border-slate-200 shadow-sm">
+                            <h4 class="font-bold text-blue-700 mb-4 border-b border-slate-200 pb-2 text-lg">Entradas / Compras - NF-e (Modelo 55)</h4>
+                            <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                                <div class="bg-white p-4 rounded-lg border border-slate-200 text-center shadow-sm">
+                                    <span class="text-xs font-bold text-slate-400 uppercase tracking-wider">Apurado (XMLs)</span>
+                                    <div class="text-2xl font-black text-blue-600 mt-1" id="mod-xml-nfe-ent">R$ 0,00</div>
+                                </div>
+                                <div class="bg-white p-4 rounded-lg border border-slate-200 text-center shadow-sm">
+                                    <span class="text-xs font-bold text-slate-400 uppercase tracking-wider">Gerado pelo Sistema (SPED)</span>
+                                    <div class="text-2xl font-black text-slate-700 mt-1" id="mod-sped-nfe-ent">R$ 0,00</div>
+                                </div>
+                                <div class="bg-white p-4 rounded-lg border border-slate-200 text-center shadow-sm">
+                                    <span class="text-xs font-bold text-slate-400 uppercase tracking-wider">Diferença Encontrada</span>
+                                    <div class="text-2xl font-black mt-1" id="mod-dif-nfe-ent">R$ 0,00</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="bg-slate-50 p-6 rounded-xl border border-slate-200 shadow-sm">
+                            <h4 class="font-bold text-emerald-700 mb-4 border-b border-slate-200 pb-2 text-lg">Faturamento - NF-e (Modelo 55)</h4>
+                            <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                                <div class="bg-white p-4 rounded-lg border border-slate-200 text-center shadow-sm">
+                                    <span class="text-xs font-bold text-slate-400 uppercase tracking-wider">Apurado (XMLs)</span>
+                                    <div class="text-2xl font-black text-emerald-600 mt-1" id="mod-xml-nfe-sai">R$ 0,00</div>
+                                </div>
+                                <div class="bg-white p-4 rounded-lg border border-slate-200 text-center shadow-sm">
+                                    <span class="text-xs font-bold text-slate-400 uppercase tracking-wider">Gerado pelo Sistema (SPED)</span>
+                                    <div class="text-2xl font-black text-slate-700 mt-1" id="mod-sped-nfe-sai">R$ 0,00</div>
+                                </div>
+                                <div class="bg-white p-4 rounded-lg border border-slate-200 text-center shadow-sm">
+                                    <span class="text-xs font-bold text-slate-400 uppercase tracking-wider">Diferença Encontrada</span>
+                                    <div class="text-2xl font-black mt-1" id="mod-dif-nfe-sai">R$ 0,00</div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="bg-slate-50 p-6 rounded-xl border border-slate-200 shadow-sm">
+                            <h4 class="font-bold text-purple-700 mb-4 border-b border-slate-200 pb-2 text-lg">Faturamento Varejo - NFC-e (Modelo 65/59)</h4>
+                            <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                                <div class="bg-white p-4 rounded-lg border border-slate-200 text-center shadow-sm">
+                                    <span class="text-xs font-bold text-slate-400 uppercase tracking-wider">Apurado (XMLs)</span>
+                                    <div class="text-2xl font-black text-purple-600 mt-1" id="mod-xml-nfce-sai">R$ 0,00</div>
+                                </div>
+                                <div class="bg-white p-4 rounded-lg border border-slate-200 text-center shadow-sm">
+                                    <span class="text-xs font-bold text-slate-400 uppercase tracking-wider">Gerado pelo Sistema (SPED)</span>
+                                    <div class="text-2xl font-black text-slate-700 mt-1" id="mod-sped-nfce-sai">R$ 0,00</div>
+                                </div>
+                                <div class="bg-white p-4 rounded-lg border border-slate-200 text-center shadow-sm">
+                                    <span class="text-xs font-bold text-slate-400 uppercase tracking-wider">Diferença Encontrada</span>
+                                    <div class="text-2xl font-black mt-1" id="mod-dif-nfce-sai">R$ 0,00</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div id="area-divergencias" class="hidden mt-8">
+                        <div class="flex justify-between items-center mb-4 border-b border-slate-200 pb-2">
+                            <h4 class="font-bold text-slate-800 text-lg flex items-center gap-2">
+                                <svg class="w-5 h-5 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
+                                Detalhamento de Divergências (Nota a Nota)
+                            </h4>
+                        </div>
+                        <table id="tabelaDivergencias" class="w-full text-sm text-left text-slate-600">
+                            <thead class="bg-slate-50">
+                                <tr>
+                                    <th>Status do Erro</th>
+                                    <th>Modelo</th>
+                                    <th>Operação</th>
+                                    <th>Nº Nota</th>
+                                    <th>Chave de Acesso Oficial</th>
+                                    <th>Valor (R$)</th>
+                                </tr>
+                            </thead>
+                            <tbody></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- SPED PIS COFINS -->
+            <div id="tab-pis-cofins" class="tab-content hidden">
+                <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
+                    <div class="flex justify-between items-center mb-6 border-b border-slate-100 pb-4">
+                        <div class="flex items-center gap-3">
+                            <div class="p-2 bg-indigo-100 rounded-lg text-indigo-600">
+                                <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                            </div>
+                            <div>
+                                <h3 class="text-xl font-bold text-slate-800">SPED EFD-Contribuições</h3>
+                                <p class="text-sm text-slate-500">Mapeamento de Receita Bruta por CST do PIS/COFINS gerado no SPED.</p>
+                            </div>
+                        </div>
+                        <button onclick="importarPisCofins()" class="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-2 px-4 rounded-lg transition-all shadow-md flex items-center gap-2 text-sm">
+                            <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" /></svg>
+                            Importar SPED PIS/COFINS
+                        </button>
+                    </div>
+
+                    <div id="res-pis-cofins" class="hidden">
+                        <div class="bg-indigo-50 p-6 rounded-xl border border-indigo-100 mb-6 text-center">
+                            <span class="text-sm font-bold text-indigo-400 uppercase tracking-wider">Receita Bruta Total SPED</span>
+                            <div class="text-4xl font-black text-indigo-700 mt-2" id="total-receita-pis">R$ 0,00</div>
+                        </div>
+
+                        <table id="tabelaPisCofins" class="w-full text-sm text-left text-slate-600">
+                            <thead class="bg-slate-50">
+                                <tr><th>CST PIS/COFINS</th><th>Significado / Natureza</th><th>Base de Cálculo / Receita (R$)</th><th>Valor Apurado (R$)</th></tr>
+                            </thead>
+                            <tbody></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- VALIDAÇÃO DE PRODUTOS -->
+            <div id="tab-produtos" class="tab-content hidden">
+                <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
+                    <h3 class="text-xl font-bold text-slate-800 mb-6">Validação de Produtos e Tributação</h3>
+                    <table id="tabelaProdutos" class="w-full text-sm text-left text-slate-600">
+                        <thead class="bg-slate-50">
+                            <tr>
+                                <th>Cód.</th>
+                                <th>NCM</th>
+                                <th>Descrição do Produto</th>
+                                <th>CFOP</th>
+                                <th>CST</th>
+                                <th>Status</th>
+                            </tr>
+                        </thead>
+                        <tbody></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- ARQUIVOS COM ERRO (OTIMIZADO) -->
+            <div id="tab-erros" class="tab-content hidden">
+                <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
+                    <div class="flex items-center gap-3 mb-4">
+                        <div class="p-2 bg-rose-100 rounded-lg text-rose-600">
+                            <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                        </div>
+                        <div>
+                            <h3 class="text-xl font-bold text-slate-800">Falhas & Arquivos Inválidos</h3>
+                            <p class="text-sm text-slate-500">Arquivos XML que não puderam ser processados devido a corrupção ou formato desconhecido.</p>
+                        </div>
+                    </div>
+                    <div id="alerta-limite-erros" class="hidden mb-4 p-3 bg-amber-50 border border-amber-200 text-amber-700 rounded-lg text-sm font-medium">
+                        ⚠️ Foram encontrados muitos arquivos inválidos nesta pasta. Exibindo apenas a amostra dos primeiros 150 erros para evitar travamentos.
+                    </div>
+                    <table id="tabelaErros" class="w-full text-sm text-left text-slate-600">
+                        <thead class="bg-slate-50">
+                            <tr>
+                                <th>Nome do Arquivo</th>
+                                <th>Motivo da Falha</th>
+                                <th>Caminho Completo</th>
+                            </tr>
+                        </thead>
+                        <tbody></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- DEMAIS ABAS -->
+            <div id="tab-cancelados" class="tab-content hidden"><div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200"><h3 class="text-xl font-bold text-slate-800 mb-6">Documentos Cancelados</h3><table id="tabelaCancelados" class="w-full text-sm text-left text-slate-600"><thead class="bg-slate-50"><tr><th>Documento</th><th>Nº Nota</th><th>Operação</th><th>Data</th><th>Valor (R$)</th><th>Emitente</th></tr></thead><tbody></tbody></table></div></div>
+            <div id="tab-nfce" class="tab-content hidden"><div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200"><h3 class="text-xl font-bold text-slate-800 mb-6">Registros NFC-e</h3><table id="tabelaNFCe" class="w-full text-sm text-left text-slate-600"><thead class="bg-slate-50"><tr><th>Nº Cupom</th><th>Série</th><th>Data</th><th>Valor (R$)</th><th>Status</th></tr></thead><tbody></tbody></table></div></div>
+            <div id="tab-nfe" class="tab-content hidden"><div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200"><h3 class="text-xl font-bold text-slate-800 mb-6">Registros NF-e</h3><table id="tabelaNFe" class="w-full text-sm text-left text-slate-600"><thead class="bg-slate-50"><tr><th>Nº Nota</th><th>Operação</th><th>Data</th><th>Valor (R$)</th><th>Status</th><th>Emitente</th></tr></thead><tbody></tbody></table></div></div>
+            <div id="tab-cfop" class="tab-content hidden bg-white p-6 rounded-xl shadow-sm border border-slate-200"><h3 class="text-lg font-bold text-slate-800 mb-6">Apuração CFOP</h3><table id="tabelaCFOP" class="w-full text-sm text-left text-slate-600"><thead class="bg-slate-50"><tr><th>Doc</th><th>CFOP</th><th>Valor (R$)</th></tr></thead><tbody></tbody></table></div>
+            <div id="tab-cst" class="tab-content hidden bg-white p-6 rounded-xl shadow-sm border border-slate-200"><h3 class="text-lg font-bold text-slate-800 mb-6">Apuração CST</h3><table id="tabelaCST" class="w-full text-sm text-left text-slate-600"><thead class="bg-slate-50"><tr><th>Doc</th><th>CST</th><th>Valor (R$)</th></tr></thead><tbody></tbody></table></div>
+            <div id="tab-serie" class="tab-content hidden bg-white p-6 rounded-xl shadow-sm border border-slate-200"><h3 class="text-lg font-bold text-slate-800 mb-6">Apuração Série</h3><table id="tabelaSerie" class="w-full text-sm text-left text-slate-600"><thead class="bg-slate-50"><tr><th>Doc</th><th>Série</th><th>Valor (R$)</th></tr></thead><tbody></tbody></table></div>
+            <div id="tab-auditoria" class="tab-content hidden bg-white p-6 rounded-xl shadow-sm border border-slate-200"><h3 class="text-xl font-bold text-slate-800 mb-6">Validação Cruzada</h3><table id="tabelaAuditoria" class="w-full text-sm text-left text-slate-600"><thead class="bg-slate-50"><tr><th>Operação</th><th>NCM</th><th>CFOP</th><th>CST</th><th>Status</th><th>Valor (R$)</th></tr></thead><tbody></tbody></table></div>
+        </div>
+    </main>
+
+    <script>
+        let dtNFCe, dtNFe, dtCancelados, dtCFOP, dtCST, dtSerie, dtAuditoria, dtProdutos, dtDivergencias, dtPisCofins, dtErros;
+        let chartInstCFOP = null, chartInstCST = null, chartInstEvolucao = null;
+        let xmlNFeApuradoEnt = 0, xmlNFeApuradoSai = 0, xmlNFCeApuradoSai = 0;
+        
+        let xmlNotasGlobais = [];
+        let spedNotasDetalhadas = [];
+
+        window.copiarEAbrir = function(chave, url) {
+            navigator.clipboard.writeText(chave).then(() => {
+                alert(`A Chave ${chave} foi copiada!\n\nCole (Ctrl+V) no portal da SEFAZ que será aberto agora.`);
+                window.open(url, '_blank');
+            }).catch(err => {
+                window.open(url, '_blank');
+            });
+        };
+
+        const renderMoeda = function(data) { return 'R$ ' + parseFloat(data).toLocaleString('pt-BR', {minimumFractionDigits: 2, maximumFractionDigits: 2}); };
+        
+        const renderBadge = function(data) {
+            if(!data) return '';
+            if(data.includes('NF-e') || data === '55') return '<span class="px-2.5 py-1 bg-blue-50 text-blue-700 rounded border border-blue-200 font-semibold text-[11px]">NF-e</span>';
+            if(data.includes('NFC-e') || data === '65' || data === '59') return '<span class="px-2.5 py-1 bg-purple-50 text-purple-700 rounded border border-purple-200 font-semibold text-[11px]">NFC-e</span>';
+            return '<span class="px-2.5 py-1 bg-slate-100 text-slate-700 rounded border border-slate-200 font-semibold text-[11px]">' + data + '</span>';
+        };
+        
+        const renderOp = function(d) { 
+            return d === 'Entrada' 
+                ? '<span class="inline-flex items-center gap-1 text-blue-600 font-semibold text-xs"><svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M19 14l-7 7m0 0l-7-7m7 7V3" /></svg> Entrada</span>' 
+                : '<span class="inline-flex items-center gap-1 text-emerald-600 font-semibold text-xs"><svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 10l7-7m0 0l7 7m-7-7v18" /></svg> Saída</span>'; 
+        };
+        
+        const renderStatus = function(d) {
+            if(d === 'OK' || d === 'Válido') return '<span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-emerald-50 text-emerald-700 border border-emerald-200">Válido</span>';
+            if(d.includes('Cancelado')) return '<span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-slate-100 text-slate-600 border border-slate-300 line-through">Cancelado</span>';
+            if(d.includes('Erro')) return '<span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-red-50 text-red-700 border border-red-200">❌ ' + d + '</span>';
+            return '<span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-amber-50 text-amber-700 border border-amber-200">⚠️ ' + d + '</span>';
+        };
+
+        $(document).ready(function() {
+            // Adicionado deferRender: true para altíssima performance no frontend
+            const dtConfig = { language: { url: 'https://cdn.datatables.net/plug-ins/1.13.6/i18n/pt-BR.json' }, responsive: true, pageLength: 25, deferRender: true, dom: '<"flex justify-between items-center mb-4"Bf>rt<"flex justify-between items-center mt-4"ip>', buttons: [ { extend: 'excelHtml5', text: 'Exportar Excel', className: 'dt-button' } ] };
+
+            dtCancelados = $('#tabelaCancelados').DataTable({ ...dtConfig, columns: [ { data: 'tipo', render: renderBadge }, { data: 'numero_nota', className: 'font-mono' }, { data: 'operacao', render: renderOp }, { data: 'data' }, { data: 'valor', render: renderMoeda, className: 'font-semibold line-through' }, { data: 'emitente_nome', className: 'truncate max-w-[200px]' } ], order: [[3, 'desc']] });
+            dtNFCe = $('#tabelaNFCe').DataTable({ ...dtConfig, columns: [ { data: 'numero_nota', className: 'font-mono' }, { data: 'serie' }, { data: 'data' }, { data: 'valor', render: renderMoeda, className: 'font-semibold' }, { data: 'status', render: renderStatus } ], order: [[2, 'desc']] });
+            dtNFe = $('#tabelaNFe').DataTable({ ...dtConfig, columns: [ { data: 'numero_nota', className: 'font-mono' }, { data: 'operacao', render: renderOp }, { data: 'data' }, { data: 'valor', render: renderMoeda, className: 'font-semibold' }, { data: 'status', render: renderStatus }, { data: 'emitente_nome', className: 'truncate max-w-[200px]' } ], order: [[2, 'desc']] });
+            dtCFOP = $('#tabelaCFOP').DataTable({ ...dtConfig, columns: [{ data: 'tipo', render: renderBadge }, { data: 'cfop', className: 'font-mono font-bold' }, { data: 'valor', render: renderMoeda, className: 'font-bold' }] });
+            dtCST = $('#tabelaCST').DataTable({ ...dtConfig, columns: [{ data: 'tipo', render: renderBadge }, { data: 'cst', className: 'font-mono font-bold' }, { data: 'valor', render: renderMoeda, className: 'font-bold' }] });
+            dtSerie = $('#tabelaSerie').DataTable({ ...dtConfig, columns: [{ data: 'tipo', render: renderBadge }, { data: 'serie' }, { data: 'valor', render: renderMoeda, className: 'font-bold' }] });
+            dtAuditoria = $('#tabelaAuditoria').DataTable({ ...dtConfig, columns: [ { data: 'operacao', render: renderOp }, { data: 'ncm', render: function(d){return `<span class="font-mono font-semibold">${d}</span>`;} }, { data: 'cfop', className: 'font-mono' }, { data: 'cst', className: 'font-mono' }, { data: 'status', render: function(d) { return d === 'OK' ? '<span class="px-2 py-0.5 rounded text-xs font-medium bg-emerald-50 text-emerald-700 border border-emerald-200">✓ Válido</span>' : `<span class="px-2 py-0.5 rounded text-xs font-medium bg-orange-50 text-orange-700 border border-orange-200">⚠️ ${d}</span>`; } }, { data: 'valor', render: renderMoeda, className: 'font-semibold' } ] });
+            
+            dtProdutos = $('#tabelaProdutos').DataTable({ 
+                ...dtConfig, 
+                columns: [ 
+                    { data: 'codigo', className: 'font-mono text-xs font-bold text-slate-500' },
+                    { data: 'ncm', render: function(d){return `<span class="font-mono text-blue-600 font-bold">${d}</span>`;} }, 
+                    { data: 'produto', className: 'text-xs font-semibold text-slate-700 truncate max-w-[250px]' }, 
+                    { data: 'cfop', className: 'font-mono font-semibold text-slate-600' }, 
+                    { data: 'cst', className: 'font-mono font-semibold text-slate-600' }, 
+                    { data: 'status', render: renderStatus } 
+                ],
+                createdRow: function(row, data, dataIndex) {
+                    $(row).addClass('cursor-pointer hover:bg-blue-50 transition-colors');
+                }
+            });
+
+            $('#tabelaProdutos tbody').on('click', 'tr', function () {
+                var data = dtProdutos.row(this).data();
+                if (data) abrirModalProduto(data);
+            });
+
+            dtErros = $('#tabelaErros').DataTable({
+                ...dtConfig,
+                columns: [
+                    { data: 'arquivo', className: 'font-mono font-bold text-slate-700' },
+                    { data: 'motivo', render: function(d) { return `<span class="px-2 py-1 rounded bg-rose-50 text-rose-700 border border-rose-200 font-medium text-xs">⚠️ ${d}</span>`; } },
+                    { data: 'caminho', className: 'font-mono text-xs text-slate-400 truncate max-w-[350px]' }
+                ]
+            });
+
+            dtDivergencias = $('#tabelaDivergencias').DataTable({ 
+                ...dtConfig, 
+                columns: [ 
+                    { data: 'problema', render: function(d) { return d === 'Falta no SPED' ? '<span class="inline-flex items-center px-2 py-1 rounded-md text-xs font-bold bg-red-100 text-red-700 border border-red-200">⚠️ Faltando no SPED</span>' : '<span class="inline-flex items-center px-2 py-1 rounded-md text-xs font-bold bg-amber-100 text-amber-700 border border-amber-200">❓ Sobrando no SPED (S/ XML)</span>'; } }, 
+                    { data: 'modelo', render: renderBadge }, 
+                    { data: 'operacao', render: renderOp }, 
+                    { data: 'numero', className: 'font-bold text-slate-700' }, 
+                    { 
+                        data: 'chave', 
+                        className: 'font-mono text-xs text-slate-500 max-w-[300px]',
+                        render: function(d) { 
+                            if (!d || d.length !== 44) return '<span class="text-slate-400 italic">S/ Chave SPED</span>';
+                            
+                            let chaveFormatada = d;
+                            let ufCode = d.substring(0, 2);
+                            let modelo = d.substring(20, 22);
+                            let urlSefaz = "https://www.nfe.fazenda.gov.br/portal/consultaRecaptcha.aspx?tipoConsulta=resumo&tipoConteudo=7PhJ+gAVw2g=";
+                            
+                            if (modelo === '65' || modelo === '59') {
+                                const urlsNFCe = {
+                                    '11': 'http://www.nfce.sefin.ro.gov.br/', '12': 'http://www.sefaznet.ac.gov.br/nfce/consulta', '13': 'http://sistemas.sefaz.am.gov.br/nfceweb/formConsulta.do', '14': 'http://www.sefaz.rr.gov.br/nfce/consulta', '15': 'https://appnfc.sefa.pa.gov.br/portal/view/consultas/nfce/consultanfce.seam', '16': 'https://www.sefaz.ap.gov.br/sate/nfce/consulta.action', '17': 'http://www.sefaz.to.gov.br/nfce/consulta.jsf', '21': 'http://www.nfce.sefaz.ma.gov.br/portal/consultaNFe.do', '22': 'http://webas.sefaz.pi.gov.br/nfceweb/consultarNFCe.jsf', '23': 'http://nfce.sefaz.ce.gov.br/pages/ShowNFCe.html', '24': 'http://nfce.set.rn.gov.br/consultarNFCe.aspx', '25': 'https://www.receita.pb.gov.br/nfce/consulta', '26': 'http://nfce.sefaz.pe.gov.br/nfce-web/consultarNFCe', '27': 'http://nfce.sefaz.al.gov.br/consultaNFCe.htm', '28': 'http://www.nfce.se.gov.br/portal/consultarNFCe.jsp', '29': 'http://nfe.sefaz.ba.gov.br/servicos/nfce/modulos/geral/NFCEC_consulta_chave_acesso.aspx', '31': 'https://nfce.fazenda.mg.gov.br/portalnfce/sistema/consultaarg.xhtml', '32': 'http://app.sefaz.es.gov.br/ConsultaNFCe/result.aspx', '33': 'http://www4.fazenda.rj.gov.br/consultaNFCe/QRCode', '35': 'https://www.nfce.fazenda.sp.gov.br/NFCeConsultaPublica/Paginas/ConsultaPublica.aspx', '41': 'http://www.fazenda.pr.gov.br/nfce/consulta', '42': 'https://sat.sef.sc.gov.br/tax.NET/sat.nfe.web/consulta_publica_nfce.aspx', '43': 'https://www.sefaz.rs.gov.br/NFCE/NFCE-COM.aspx', '50': 'http://www.dfe.ms.gov.br/nfce/consulta', '51': 'http://www.sefaz.mt.gov.br/nfce/consultanfce', '52': 'http://nfe.sefaz.go.gov.br/nfeweb/sites/nfce/danfeNFCe', '53': 'http://dec.fazenda.df.gov.br/ConsultarNFCe.aspx'
+                                };
+                                urlSefaz = urlsNFCe[ufCode] || urlSefaz;
+                            } else {
+                                urlSefaz += "&chNFe=" + d;
+                            }
+
+                            return `
+                                <div class="flex items-center gap-2">
+                                    <span>${chaveFormatada}</span>
+                                    <button onclick="copiarEAbrir('${d}', '${urlSefaz}')" class="text-blue-600 hover:text-blue-800 bg-blue-50 hover:bg-blue-100 p-1.5 rounded transition-colors" title="Copiar Chave e Abrir SEFAZ">
+                                        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                                        </svg>
+                                    </button>
+                                </div>`;
+                        } 
+                    }, 
+                    { data: 'valor', render: renderMoeda, className: 'font-bold text-slate-800' } 
+                ],
+                order: [[0, 'asc'], [5, 'desc']]
+            });
+
+            dtPisCofins = $('#tabelaPisCofins').DataTable({ ...dtConfig, columns: [ 
+                { data: 'cst', className: 'font-mono font-bold text-indigo-600 text-lg' }, 
+                { data: 'cst', render: function(d) {
+                    if(d === '01' || d === '02') return 'Operação Tributada Integral';
+                    if(d === '04') return '<span class="text-emerald-600 font-bold">Monofásica (Combustíveis)</span>';
+                    if(d === '06') return 'Alíquota Zero';
+                    if(d === '07') return 'Operação Isenta';
+                    if(d === '49' || d === '99') return 'Outras Operações';
+                    return 'Outros';
+                }},
+                { data: 'vl_opr', render: renderMoeda, className: 'font-black text-slate-800' },
+                { data: 'vl_pis', render: renderMoeda, className: 'font-semibold text-slate-500' }
+            ], order: [[2, 'desc']] });
+        });
+
+        function abrirModalProduto(data) {
+            document.getElementById('mod-prod-cod').innerText = data.codigo || 'N/A';
+            document.getElementById('mod-prod-ncm').innerText = data.ncm || 'N/A';
+            document.getElementById('mod-prod-desc').innerText = data.produto || 'N/A';
+            document.getElementById('mod-prod-cfop').innerText = data.cfop || 'N/A';
+            document.getElementById('mod-prod-cst').innerText = data.cst || 'N/A';
+            
+            document.getElementById('mod-prod-status').innerText = data.status || 'N/A';
+            document.getElementById('mod-prod-motivo').innerText = data.motivo || 'N/A';
+            
+            let alertBox = document.getElementById('mod-prod-alert-box');
+            if(data.status.includes('Válido') || data.status.includes('OK')) {
+                alertBox.className = 'p-4 rounded-lg border mt-4 bg-emerald-50 border-emerald-100';
+                document.getElementById('mod-prod-status').className = 'block text-xs font-bold uppercase mb-1 text-emerald-700';
+                document.getElementById('mod-prod-motivo').className = 'text-sm text-emerald-800';
+            } else if (data.status.includes('Erro')) {
+                alertBox.className = 'p-4 rounded-lg border mt-4 bg-red-50 border-red-100';
+                document.getElementById('mod-prod-status').className = 'block text-xs font-bold uppercase mb-1 text-red-700';
+                document.getElementById('mod-prod-motivo').className = 'text-sm text-red-800';
+            } else {
+                alertBox.className = 'p-4 rounded-lg border mt-4 bg-amber-50 border-amber-100';
+                document.getElementById('mod-prod-status').className = 'block text-xs font-bold uppercase mb-1 text-amber-700';
+                document.getElementById('mod-prod-motivo').className = 'text-sm text-amber-800';
+            }
+
+            const modal = document.getElementById('modalProduto');
+            const content = document.getElementById('modalProdutoContent');
+            modal.classList.remove('hidden');
+            setTimeout(() => {
+                content.classList.remove('scale-95', 'opacity-0');
+                content.classList.add('scale-100', 'opacity-100');
+            }, 10);
+        }
+
+        function fecharModalProduto() {
+            const modal = document.getElementById('modalProduto');
+            const content = document.getElementById('modalProdutoContent');
+            content.classList.remove('scale-100', 'opacity-100');
+            content.classList.add('scale-95', 'opacity-0');
+            setTimeout(() => {
+                modal.classList.add('hidden');
+            }, 300);
+        }
+
+        function toggleSidebar() {
+            const sidebar = document.getElementById('main-sidebar');
+            const texts = document.querySelectorAll('.sidebar-text');
+            
+            if (sidebar.classList.contains('w-[280px]')) {
+                sidebar.classList.remove('w-[280px]');
+                sidebar.classList.add('w-[80px]', 'sidebar-collapsed');
+                texts.forEach(el => el.classList.add('hidden'));
+            } else {
+                sidebar.classList.remove('w-[80px]', 'sidebar-collapsed');
+                sidebar.classList.add('w-[280px]');
+                texts.forEach(el => el.classList.remove('hidden'));
+            }
+            setTimeout(() => { $.fn.dataTable.tables({ visible: true, api: true }).columns.adjust(); }, 300);
+        }
+
+        async function limparESairCliente() {
+            if(confirm("Deseja limpar os dados atuais e carregar uma nova pasta de cliente?")) {
+                await fetch('/limpar_sessao');
+                location.reload();
+            }
+        }
+
+        function exportarRelatorioGeral() {
+            if (dtProdutos) {
+                $('.dt-buttons .buttons-excel').first().click();
+                alert("Relatório geral exportado com sucesso!");
+            } else {
+                alert("Nenhum dado processado para exportar.");
+            }
+        }
+
+        async function importarPisCofins() {
+            document.getElementById('statusAuditoria').innerHTML = `<span class="w-2 h-2 rounded-full bg-indigo-500 animate-pulse"></span> Lendo PIS/COFINS...`;
+            try {
+                const response = await fetch('/importar_sped_contribuicoes');
+                const result = await response.json();
+                
+                if (result.status === 'sucesso') {
+                    document.getElementById('total-receita-pis').innerText = renderMoeda(result.total_receita);
+                    dtPisCofins.clear().rows.add(result.csts).draw();
+                    document.getElementById('res-pis-cofins').classList.remove('hidden');
+                    document.getElementById('statusAuditoria').innerHTML = `<span class="w-2 h-2 rounded-full bg-emerald-500"></span> EFD-Contribuições Carregado!`;
+                }
+            } catch (err) {
+                alert("Falha ao ler EFD-Contribuições.");
+            }
+        }
+
+        async function confrontarSPED() {
+            if(xmlNFeApuradoEnt === 0 && xmlNFeApuradoSai === 0 && xmlNFCeApuradoSai === 0) {
+                alert("Por favor, importe e audite os XMLs antes de cruzar com o SPED.");
+                return;
+            }
+
+            mudarAba('tab-sped', document.getElementById('btn-tab-sped'));
+            document.getElementById('statusAuditoria').innerHTML = `<span class="w-2 h-2 rounded-full bg-blue-500 animate-pulse"></span> Lendo arquivo SPED...`;
+            
+            try {
+                const response = await fetch('/importar_sped');
+                const result = await response.json();
+                
+                if (result.status === 'sucesso') {
+                    const spedNFeEnt = result.sped_nfe_ent || 0;
+                    const spedNFeSai = result.sped_nfe_sai || 0;
+                    const spedNFCeSai = result.sped_nfce_sai || 0;
+                    
+                    const difNFeEnt = xmlNFeApuradoEnt - spedNFeEnt;
+                    const difNFeSai = xmlNFeApuradoSai - spedNFeSai;
+                    const difNFCeSai = xmlNFCeApuradoSai - spedNFCeSai;
+                    
+                    document.getElementById('mod-xml-nfe-ent').innerText = renderMoeda(xmlNFeApuradoEnt);
+                    document.getElementById('mod-sped-nfe-ent').innerText = renderMoeda(spedNFeEnt);
+                    document.getElementById('mod-dif-nfe-ent').innerText = renderMoeda(difNFeEnt);
+                    document.getElementById('mod-dif-nfe-ent').className = difNFeEnt === 0 ? "text-2xl font-black mt-1 text-emerald-600" : "text-2xl font-black mt-1 text-red-600";
+
+                    document.getElementById('mod-xml-nfe-sai').innerText = renderMoeda(xmlNFeApuradoSai);
+                    document.getElementById('mod-sped-nfe-sai').innerText = renderMoeda(spedNFeSai);
+                    document.getElementById('mod-dif-nfe-sai').innerText = renderMoeda(difNFeSai);
+                    document.getElementById('mod-dif-nfe-sai').className = difNFeSai === 0 ? "text-2xl font-black mt-1 text-emerald-600" : "text-2xl font-black mt-1 text-red-600";
+
+                    document.getElementById('mod-xml-nfce-sai').innerText = renderMoeda(xmlNFCeApuradoSai);
+                    document.getElementById('mod-sped-nfce-sai').innerText = renderMoeda(spedNFCeSai);
+                    document.getElementById('mod-dif-nfce-sai').innerText = renderMoeda(difNFCeSai);
+                    document.getElementById('mod-dif-nfce-sai').className = difNFCeSai === 0 ? "text-2xl font-black mt-1 text-emerald-600" : "text-2xl font-black mt-1 text-red-600";
+
+                    document.getElementById('placeholder-sped').classList.add('hidden');
+                    document.getElementById('resultado-sped').classList.remove('hidden');
+                    document.getElementById('btnDivergencias').classList.remove('hidden');
+                    
+                    spedNotasDetalhadas = result.sped_detalhes || [];
+                    document.getElementById('statusAuditoria').innerHTML = `<span class="w-2 h-2 rounded-full bg-emerald-500"></span> SPED Cruzado!`;
+                }
+            } catch (err) {
+                document.getElementById('statusAuditoria').innerHTML = `<span class="w-2 h-2 rounded-full bg-red-500"></span> Falha na leitura do SPED`;
+            }
+        }
+
+        function mostrarDivergencias() {
+            let divergencias = [];
+            let xmlKeys = {};
+            
+            xmlNotasGlobais.forEach(n => {
+                if (!n.status.includes('Cancelado') && n.valor > 0) {
+                    if(n.chave) { xmlKeys[n.chave] = n; }
+                }
+            });
+            
+            let spedKeys = {};
+            spedNotasDetalhadas.forEach(s => {
+                if (s.valor > 0) {
+                    if (s.chave) spedKeys[s.chave] = s;
+                    if (s.chave && !xmlKeys[s.chave]) {
+                        divergencias.push({ problema: 'Sobra no SPED', modelo: s.modelo, operacao: s.operacao, numero: s.numero, chave: s.chave, valor: s.valor });
+                    }
+                }
+            });
+            
+            xmlNotasGlobais.forEach(n => {
+                if (!n.status.includes('Cancelado') && n.valor > 0 && n.chave) {
+                    if (!spedKeys[n.chave]) {
+                        divergencias.push({ problema: 'Falta no SPED', modelo: n.tipo, operacao: n.operacao, numero: n.numero_nota, chave: n.chave, valor: n.valor });
+                    }
+                }
+            });
+            
+            document.getElementById('area-divergencias').classList.remove('hidden');
+            dtDivergencias.clear().rows.add(divergencias).draw();
+            document.getElementById('area-divergencias').scrollIntoView({ behavior: 'smooth' });
+        }
+
+        function filtrarPeloCard(tipo) {
+            if(tipo === 'nfe_entrada') { mudarAba('tab-nfe', document.getElementById('btn-tab-nfe')); dtNFe.search('Entrada').draw(); } 
+            else if (tipo === 'nfe_saida') { mudarAba('tab-nfe', document.getElementById('btn-tab-nfe')); dtNFe.search('Saída').draw(); } 
+            else if (tipo === 'nfce') { mudarAba('tab-nfce', document.getElementById('btn-tab-nfce')); dtNFCe.search('').draw(); }
+        }
+        function filtrarCancelados() { mudarAba('tab-cancelados', null); }
+        function filtrarInconsistencias() { mudarAba('tab-auditoria', document.getElementById('btn-tab-auditoria')); dtAuditoria.search('⚠️').draw(); }
+        function filtrarErros() { mudarAba('tab-erros', document.getElementById('btn-tab-erros')); dtErros.search('').draw(); }
+
+        function mudarAba(tabId, el) {
+            document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
+            document.getElementById(tabId).classList.remove('hidden');
+            
+            document.querySelectorAll('.tab-btn').forEach(btn => {
+                btn.classList.remove('active', 'bg-blue-600', 'text-white');
+                btn.classList.add('text-slate-400', 'hover:bg-slate-800', 'hover:text-white');
+            });
+            
+            if(el) {
+                el.classList.remove('text-slate-400', 'hover:bg-slate-800', 'hover:text-white');
+                el.classList.add('active', 'bg-blue-600', 'text-white');
+            }
+            
+            $.fn.dataTable.tables({ visible: true, api: true }).columns.adjust();
+            if(tabId === 'tab-resumo'){ dtNFe.search('').draw(); dtNFCe.search('').draw(); }
+            if(tabId === 'tab-auditoria'){ dtAuditoria.search('').draw(); } 
+        }
+
+	async function iniciarProcessamento() {
+            const btn = document.getElementById('btnProcessarDash');
+            const statusLabel = document.getElementById('statusAuditoria');
+            const progContainer = document.getElementById('progressContainer');
+            const progBar = document.getElementById('progressBar');
+            
+            if(btn) {
+                btn.innerHTML = '<svg class="animate-spin h-5 w-5" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle></svg> Processando...';
+                btn.disabled = true;
+            }
+            
+            statusLabel.innerHTML = '<span class="w-2 h-2 rounded-full bg-blue-500 animate-pulse"></span> Iniciando leitura...';
+            
+            try {
+                const respPasta = await fetch('/selecionar_pasta');
+                const resultPasta = await respPasta.json();
+                
+                if (resultPasta.status === 'cancelado') {
+                    if(btn) {
+                        btn.innerHTML = 'Importar e Auditar XMLs';
+                        btn.disabled = false;
+                    }
+                    return;
+                }
+
+                let total = resultPasta.total;
+                let processados = 0;
+                progContainer.style.display = 'block';
+
+                // ESTE LOOP AGORA CONSOME O QUE O PYTHON ENVIAR (Lotes de 1000)
+                while(processados < total) {
+                    const respLote = await fetch('/processar_lote');
+                    const resultLote = await respLote.json();
+                    
+                    processados = resultLote.processados;
+                    let porcentagem = (processados / total) * 100;
+                    
+                    progBar.style.width = porcentagem + '%';
+                    // Mostra o número real vindo do Python
+                    statusLabel.innerHTML = `<span class="w-2 h-2 rounded-full bg-blue-500 animate-pulse"></span> Processando: ${processados} de ${total} arquivos...`;
+                }
+
+                statusLabel.innerHTML = `<span class="w-2 h-2 rounded-full bg-blue-500 animate-pulse"></span> Cruzando dados fiscais...`;
+                const respFinal = await fetch('/finalizar_processamento');
+                const dados = await respFinal.json();
+
+                xmlNotasGlobais = dados.notas;
+
+                // Atualização das tabelas
+                dtCancelados.clear().rows.add(dados.notas.filter(n => n.status && n.status.includes('Cancelado'))).draw();
+                dtNFCe.clear().rows.add(dados.notas.filter(n => n.tipo && n.tipo.includes('NFC-e'))).draw();
+                dtNFe.clear().rows.add(dados.notas.filter(n => n.tipo && n.tipo.includes('NF-e'))).draw();
+                dtCFOP.clear().rows.add(dados.cfop).draw();
+                dtCST.clear().rows.add(dados.cst).draw();
+                dtSerie.clear().rows.add(dados.serie).draw();
+                dtAuditoria.clear().rows.add(dados.auditoria).draw();
+                dtProdutos.clear().rows.add(dados.produtos).draw();
+                dtErros.clear().rows.add(dados.erros || []).draw();
+                
+                atualizarPainelDinamico(dados);
+                renderizarGraficos(dados.cfop, dados.cst, dados.diario);
+                
+                let nomeEmpresa = "Empresa não identificada";
+                let notaEmpresa = dados.notas.find(n => n.operacao === 'Saída' && n.emitente_nome && n.emitente_nome !== 'Desconhecido');
+                if (notaEmpresa) nomeEmpresa = notaEmpresa.emitente_nome;
+
+                document.getElementById('nomeEmpresaHeader').innerText = nomeEmpresa;
+                statusLabel.innerHTML = `<span class="w-2 h-2 rounded-full bg-emerald-500"></span> Auditoria concluída (${dados.total_lidos} arquivos lidos)`;
+                
+                document.getElementById('faixa-resumo-auditoria').classList.remove('hidden');
+                document.getElementById('btnTrocarCliente').classList.remove('hidden');
+                document.getElementById('btnExportarGeral').classList.remove('hidden');
+                document.getElementById('card-boas-vindas').classList.add('hidden');
+
+            } catch (error) {
+                console.error(error);
+                statusLabel.innerHTML = '<span class="w-2 h-2 rounded-full bg-red-500"></span> Falha na comunicação.';
+            } finally {
+                if(btn) {
+                    btn.innerHTML = 'Importar e Auditar XMLs';
+                    btn.disabled = false;
+                }
+                setTimeout(() => { progContainer.style.display = 'none'; }, 3000);
+            }
+        }
+        
+        function atualizarPainelDinamico(dados) {
+            const notas = dados.notas;
+            const auditoria = dados.auditoria;
+            
+            let totalXMLs = dados.total_lidos || 0;
+            let qtdCancelados = 0;
+            let qtdInconsistencias = auditoria.filter(a => a.status !== 'OK').length;
+            let totalErros = dados.total_erros || 0;
+
+            let nfeEntQtd = 0, nfeEntBruto = 0, nfeEntCanc = 0;
+            let nfeSaiQtd = 0, nfeSaiBruto = 0, nfeSaiCanc = 0;
+            let nfceQtd = 0, nfceBruto = 0, nfceCanc = 0;
+
+            notas.forEach(nota => {
+                let cancelada = nota.status.includes('Cancelado');
+                if(cancelada) qtdCancelados++;
+
+                if(nota.tipo.includes('NF-e')) {
+                    if(nota.operacao === 'Entrada') { 
+                        nfeEntQtd++; nfeEntBruto += nota.valor; if(cancelada) nfeEntCanc += nota.valor;
+                    } else { 
+                        nfeSaiQtd++; nfeSaiBruto += nota.valor; if(cancelada) nfeSaiCanc += nota.valor;
+                    }
+                } else if(nota.tipo.includes('NFC-e')) {
+                    nfceQtd++; nfceBruto += nota.valor; if(cancelada) nfceCanc += nota.valor;
+                }
+            });
+
+            xmlNFeApuradoEnt = nfeEntBruto - nfeEntCanc;
+            xmlNFeApuradoSai = nfeSaiBruto - nfeSaiCanc;
+            xmlNFCeApuradoSai = nfceBruto - nfceCanc;
+
+            const formatar = (v) => v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+
+            $('#resumo-total').text(totalXMLs.toLocaleString('pt-BR'));
+            $('#resumo-validos').text((notas.length - qtdCancelados).toLocaleString('pt-BR'));
+            $('#resumo-cancelados').text(qtdCancelados.toLocaleString('pt-BR'));
+            
+            let inconsisEl = $('#resumo-inconsistencias');
+            inconsisEl.text(qtdInconsistencias.toLocaleString('pt-BR'));
+            
+            let errosEl = $('#resumo-erros');
+            errosEl.text(totalErros.toLocaleString('pt-BR'));
+
+            if (totalErros > 150) {
+                document.getElementById('alerta-limite-erros').classList.remove('hidden');
+            } else {
+                document.getElementById('alerta-limite-erros').classList.add('hidden');
+            }
+
+            $('#dash-nfe-ent-qtd').text(nfeEntQtd); $('#dash-nfe-ent-val').text(formatar(xmlNFeApuradoEnt));
+            $('#dash-nfe-sai-qtd').text(nfeSaiQtd); $('#dash-nfe-sai-bruto').text(formatar(nfeSaiBruto)); $('#dash-nfe-sai-canc').text("- " + formatar(nfeSaiCanc)); $('#dash-nfe-sai-liq').text(formatar(xmlNFeApuradoSai));
+            $('#dash-nfce-qtd').text(nfceQtd); $('#dash-nfce-canc-qtd').text(`${notas.filter(n => n.tipo.includes('NFC-e') && n.status.includes('Cancelado')).length} cancelados`); $('#dash-nfce-bruto').text(formatar(nfceBruto)); $('#dash-nfce-canc-val').text("- " + formatar(nfceCanc)); $('#dash-nfce-liq').text(formatar(xmlNFCeApuradoSai));
+        }
+
+        function renderizarGraficos(dadosCFOP, dadosCST, dadosDiario) {
+            let aggCFOP = {}; dadosCFOP.forEach(i => { aggCFOP[i.cfop] = (aggCFOP[i.cfop] || 0) + i.valor; });
+            let sortedCFOP = Object.entries(aggCFOP).sort((a,b) => b[1] - a[1]);
+            let labelsCFOP = [], dataCFOP = []; let totalOutrosCFOP = 0;
+            sortedCFOP.forEach((item, index) => { if(index < 5) { labelsCFOP.push(item[0]); dataCFOP.push(item[1]); } else { totalOutrosCFOP += item[1]; } });
+            if(totalOutrosCFOP > 0) { labelsCFOP.push('Outros'); dataCFOP.push(totalOutrosCFOP); }
+
+            let aggCST = {}; dadosCST.forEach(i => { aggCST[i.cst] = (aggCST[i.cst] || 0) + i.valor; });
+            let sortedCST = Object.entries(aggCST).sort((a,b) => b[1] - a[1]);
+            let labelsCST = [], dataCST = []; let totalOutrosCST = 0;
+            sortedCST.forEach((item, index) => { if(index < 5) { labelsCST.push(item[0]); dataCST.push(item[1]); } else { totalOutrosCST += item[1]; } });
+            if(totalOutrosCST > 0) { labelsCST.push('Outros'); dataCST.push(totalOutrosCST); }
+
+            const configPadrao = { type: 'doughnut', options: { responsive: true, maintainAspectRatio: false, cutout: '65%', plugins: { legend: { position: 'right', labels: { usePointStyle: true, boxWidth: 8, font: {family: 'Inter', size: 11} } }, tooltip: { callbacks: { label: function(context) { return ' ' + (context.raw || 0).toLocaleString('pt-BR', {style: 'currency', currency: 'BRL'}); }}} } } };
+            const colors = ['#3b82f6', '#10b981', '#f59e0b', '#8b5cf6', '#ec4899', '#94a3b8'];
+
+            if(chartInstCFOP) chartInstCFOP.destroy(); 
+            chartInstCFOP = new Chart(document.getElementById('graficoCFOP'), { ...configPadrao, data: { labels: labelsCFOP, datasets: [{ data: dataCFOP, backgroundColor: colors, borderWidth: 0 }] } });
+
+            if(chartInstCST) chartInstCST.destroy();
+            chartInstCST = new Chart(document.getElementById('graficoCST'), { ...configPadrao, data: { labels: labelsCST, datasets: [{ data: dataCST, backgroundColor: colors, borderWidth: 0 }] } });
+
+            let labelsDiario = dadosDiario.map(d => { let p = d.data.split('-'); return p.length === 3 ? `${p[2]}/${p[1]}` : d.data; });
+            let valuesDiario = dadosDiario.map(d => d.valor);
+
+            if(chartInstEvolucao) chartInstEvolucao.destroy();
+            chartInstEvolucao = new Chart(document.getElementById('graficoEvolucao'), {
+                type: 'line',
+                data: { labels: labelsDiario, datasets: [{ label: 'Faturamento (Saídas)', data: valuesDiario, borderColor: '#3b82f6', backgroundColor: 'rgba(59, 130, 246, 0.1)', borderWidth: 3, pointBackgroundColor: '#ffffff', pointBorderColor: '#3b82f6', pointBorderWidth: 2, pointRadius: 4, fill: true, tension: 0.3 }] },
+                options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false }, tooltip: { callbacks: { label: function(context) { return ' ' + context.raw.toLocaleString('pt-BR', {style: 'currency', currency: 'BRL'}); } } } }, scales: { y: { beginAtZero: true, grid: { borderDash: [4, 4], color: '#e2e8f0' }, ticks: { callback: function(value) { return 'R$ ' + (value/1000) + 'k'; } } }, x: { grid: { display: false } } } }
+            });
+        }
+    </script>
+</body>
+</html>
