@@ -1,0 +1,9 @@
+services:
+  - type: web
+    name: omnixml-web
+    runtime: python
+    plan: free
+    buildCommand: pip install -r requirements-prod.txt
+    startCommand: gunicorn web_app:app
+    healthCheckPath: /health
+    autoDeployTrigger: commit

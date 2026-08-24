@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OmniXML Web - Validação Fiscal</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="min-h-screen bg-slate-950 text-slate-100">
+    <main class="max-w-5xl mx-auto px-6 py-12">
+        <div class="flex items-center justify-between gap-4 mb-10">
+            <div>
+                <p class="text-blue-400 text-sm font-bold uppercase tracking-[0.2em]">OmniXML</p>
+                <h1 class="text-4xl font-black mt-2">Validador fiscal web</h1>
+                <p class="text-slate-400 mt-3">Prévia de produção da Fase 2: XML bem-formado, documento reconhecido, chave/DV e protocolo SEFAZ.</p>
+            </div>
+            <span class="text-xs px-3 py-1 rounded-full bg-amber-500/10 text-amber-300 border border-amber-500/20">Beta</span>
+        </div>
+
+        <section class="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-2xl">
+            <form id="formUpload" class="space-y-5">
+                <label class="block">
+                    <span class="block text-sm font-semibold mb-2">Arquivo XML</span>
+                    <input id="arquivo" name="arquivo" type="file" accept=".xml,text/xml,application/xml" required
+                           class="block w-full text-sm text-slate-300 file:mr-4 file:py-2.5 file:px-4 file:rounded-lg file:border-0 file:bg-blue-600 file:text-white file:font-semibold hover:file:bg-blue-500 bg-slate-950 border border-slate-700 rounded-xl p-2">
+                </label>
+                <div class="flex items-center gap-3">
+                    <button id="btnValidar" type="submit" class="bg-blue-600 hover:bg-blue-500 disabled:opacity-50 px-5 py-2.5 rounded-xl font-bold transition">
+                        Validar XML
+                    </button>
+                    <span id="status" class="text-sm text-slate-400"></span>
+                </div>
+            </form>
+        </section>
+
+        <section id="resultado" class="hidden mt-8 space-y-6">
+            <div class="grid md:grid-cols-4 gap-4" id="cards"></div>
+            <div class="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden">
+                <div class="px-6 py-4 border-b border-slate-800">
+                    <h2 class="font-bold text-lg">Resultado das verificações</h2>
+                </div>
+                <div id="validacoes" class="divide-y divide-slate-800"></div>
+            </div>
+        </section>
+
+        <footer class="mt-10 text-xs text-slate-500 leading-relaxed">
+            Esta versão é uma prévia técnica. As verificações exibidas correspondem somente às regras já implementadas e não substituem validação oficial da SEFAZ nem análise tributária profissional. Os XMLs enviados são processados em memória nesta demonstração.
+        </footer>
+    </main>
+
+<script>
+const form = document.getElementById('formUpload');
+const btn = document.getElementById('btnValidar');
+const statusEl = document.getElementById('status');
+const resultadoEl = document.getElementById('resultado');
+
+function esc(value) {
+    return String(value ?? '').replace(/[&<>'"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]));
+}
+
+function badge(severidade) {
+    if (severidade === 'OK') return 'bg-emerald-500/10 text-emerald-300 border-emerald-500/20';
+    if (severidade === 'ERRO') return 'bg-red-500/10 text-red-300 border-red-500/20';
+    return 'bg-amber-500/10 text-amber-300 border-amber-500/20';
+}
+
+form.addEventListener('submit', async (event) => {
+    event.preventDefault();
+    const arquivo = document.getElementById('arquivo').files[0];
+    if (!arquivo) return;
+
+    btn.disabled = true;
+    statusEl.textContent = 'Validando...';
+    resultadoEl.classList.add('hidden');
+
+    const data = new FormData();
+    data.append('arquivo', arquivo);
+
+    try {
+        const response = await fetch('/api/validar-xml', { method: 'POST', body: data });
+        const payload = await response.json();
+        if (!response.ok) throw new Error(payload.mensagem || 'Falha na validação.');
+
+        const r = payload.resultado;
+        document.getElementById('cards').innerHTML = [
+            ['Documento', r.tipo],
+            ['Número', r.numero || '—'],
+            ['Operação', r.operacao || '—'],
+            ['Status', r.status],
+        ].map(([titulo, valor]) => `
+            <div class="bg-slate-900 border border-slate-800 rounded-2xl p-4">
+                <div class="text-xs uppercase tracking-wider text-slate-500 font-bold">${esc(titulo)}</div>
+                <div class="mt-2 font-bold text-sm break-words">${esc(valor)}</div>
+            </div>`).join('');
+
+        document.getElementById('validacoes').innerHTML = (r.validacoes || []).map(v => `
+            <div class="p-5 flex gap-4 items-start">
+                <span class="shrink-0 text-xs px-2.5 py-1 rounded-full border font-bold ${badge(v.severidade)}">${esc(v.severidade)}</span>
+                <div class="min-w-0">
+                    <div class="font-mono text-xs text-blue-400">${esc(v.codigo)}</div>
+                    <div class="font-semibold mt-1">${esc(v.mensagem)}</div>
+                    ${v.campo ? `<div class="text-xs text-slate-500 mt-1">Campo: ${esc(v.campo)}</div>` : ''}
+                </div>
+            </div>`).join('');
+
+        resultadoEl.classList.remove('hidden');
+        statusEl.textContent = 'Validação concluída.';
+    } catch (error) {
+        statusEl.textContent = error.message;
+        statusEl.className = 'text-sm text-red-400';
+    } finally {
+        btn.disabled = false;
+    }
+});
+</script>
+</body>
+</html>
