@@ -1,6 +1,7 @@
 import csv
 import io
 import json
+import re
 import shutil
 import tempfile
 import time
@@ -11,6 +12,8 @@ from pathlib import Path
 from flask import Flask, Response, jsonify, render_template, request
 from defusedxml import ElementTree as ET
 
+from core.factory import ArquivoInfo, ParserFactory
+from core.validador import json_safe
 from core.validacao_documental import validar_documento
 
 
@@ -46,7 +49,7 @@ def _carregar_estado(pasta: Path) -> dict:
 def _salvar_estado(pasta: Path, estado: dict) -> None:
     estado['updated_at'] = time.time()
     tmp = pasta / 'state.tmp'
-    tmp.write_text(json.dumps(estado, ensure_ascii=False, indent=2), encoding='utf-8')
+    tmp.write_text(json.dumps(json_safe(estado), ensure_ascii=False, indent=2), encoding='utf-8')
     tmp.replace(_state_path(pasta))
 
 
@@ -81,11 +84,16 @@ def _novo_xml(pasta: Path, nome_original: str, conteudo: bytes, arquivos: list) 
 
     identificador = f'{uuid.uuid4().hex}.xml'
     (pasta / 'uploads' / identificador).write_bytes(conteudo)
-    arquivos.append({'nome': Path(nome_original).name or 'documento.xml', 'stored': identificador, 'size': len(conteudo)})
+    arquivos.append({
+        'nome': Path(nome_original).name or 'documento.xml',
+        'caminho_original': nome_original,
+        'stored': identificador,
+        'size': len(conteudo),
+    })
 
 
 def _adicionar_upload(pasta: Path, upload, arquivos: list, avisos: list) -> None:
-    nome = Path(upload.filename or '').name
+    nome = upload.filename or ''
     if not nome:
         return
 
@@ -108,16 +116,16 @@ def _adicionar_upload(pasta: Path, upload, arquivos: list, avisos: list) -> None
                         avisos.append(f'{info.filename}: XML acima de 20 MB ignorado.')
                         continue
                     try:
-                        _novo_xml(pasta, Path(info.filename).name, zf.read(info), arquivos)
+                        _novo_xml(pasta, info.filename, zf.read(info), arquivos)
                     except ValueError as exc:
                         if '500 MB' in str(exc) or '5000' in str(exc):
                             raise
                         avisos.append(str(exc))
         except zipfile.BadZipFile:
-            raise ValueError(f'{nome}: ZIP inválido ou corrompido.')
+            raise ValueError(f'{Path(nome).name}: ZIP inválido ou corrompido.')
         return
 
-    avisos.append(f'{nome}: formato ignorado; use XML ou ZIP.')
+    avisos.append(f'{Path(nome).name}: formato ignorado; use XML ou ZIP.')
 
 
 def _resumo(estado: dict) -> dict:
@@ -141,6 +149,170 @@ def _resumo(estado: dict) -> dict:
     }
 
 
+def _dashboard_payload(estado: dict) -> dict:
+    resultados = estado.get('resultados', [])
+    erros_leitura = list(estado.get('erros_leitura', []))
+
+    canceladas = {
+        r.get('chave')
+        for r in resultados
+        if r.get('tipo') == 'Evento de cancelamento NF-e'
+        and r.get('status') == 'Cancelamento confirmado'
+        and r.get('chave')
+    }
+
+    notas = []
+    duplicidades = []
+    por_chave = {}
+    for original in resultados:
+        if original.get('tipo') in {'Evento de cancelamento NF-e', 'Desconhecido'}:
+            continue
+        nota = dict(original)
+        chave = nota.get('chave') or ''
+        if chave and chave in por_chave:
+            duplicidades.append({
+                'chave': chave,
+                'arquivo_original': por_chave[chave].get('arquivo', ''),
+                'arquivo_duplicado': nota.get('arquivo', ''),
+            })
+            continue
+        if chave:
+            por_chave[chave] = nota
+        if chave in canceladas:
+            nota['status'] = 'Cancelado'
+        notas.append(nota)
+
+    resumo_cfop = {}
+    resumo_cst = {}
+    resumo_serie = {}
+    faturamento_diario = {}
+    auditoria_tributaria = {}
+    validacao_produtos = {}
+
+    cfops_st = {'5405', '5403', '5401', '6404', '6403', '6401'}
+    cst_csosn_st = {'60', '060', '500', '201', '202', '203'}
+
+    for info in notas:
+        cancelada = 'Cancelado' in str(info.get('status', ''))
+        valor_nota = float(info.get('valor') or 0)
+        operacao = info.get('operacao', 'Saída')
+        tipo = info.get('tipo', '')
+        serie = info.get('serie', 'N/A')
+        itens = info.get('itens') or []
+
+        if not cancelada and valor_nota > 0:
+            if operacao == 'Saída':
+                data_emissao = info.get('data') or 'N/A'
+                tem_cfop_faturamento = any(item.get('cfop', '') in {'5929', '6929'} for item in itens)
+                if not tem_cfop_faturamento:
+                    faturamento_diario[data_emissao] = faturamento_diario.get(data_emissao, 0.0) + valor_nota
+
+                chave_serie = f'{tipo}_{serie}'
+                resumo_serie.setdefault(chave_serie, {'tipo': tipo, 'serie': serie, 'valor': 0.0})
+                resumo_serie[chave_serie]['valor'] += valor_nota
+
+            for item in itens:
+                cfop = str(item.get('cfop', '') or '')
+                cst = str(item.get('cst', '') or '')
+                val = float(item.get('valor') or 0)
+                ncm = str(item.get('ncm', '') or '')
+                nome = str(item.get('nome', '') or '')
+                codigo = str(item.get('codigo') or item.get('cprod') or 'S/C')
+
+                if operacao == 'Saída':
+                    chave_cfop = f'{tipo}_{cfop}'
+                    resumo_cfop.setdefault(chave_cfop, {'tipo': tipo, 'cfop': cfop, 'valor': 0.0})
+                    resumo_cfop[chave_cfop]['valor'] += val
+
+                    chave_cst = f'{tipo}_{cst}'
+                    resumo_cst.setdefault(chave_cst, {'tipo': tipo, 'cst': cst, 'valor': 0.0})
+                    resumo_cst[chave_cst]['valor'] += val
+
+                    chave_auditoria = f'{ncm}_{cfop}_{cst}'
+                    if chave_auditoria not in auditoria_tributaria:
+                        status = 'OK'
+                        if len(ncm) != 8 or not ncm.isdigit():
+                            status = 'NCM INVÁLIDO'
+                        elif cfop in cfops_st and cst not in cst_csosn_st:
+                            status = 'ALERTA: CFOP de ST com CST/CSOSN atípico'
+                        elif cfop not in cfops_st and cst in cst_csosn_st:
+                            status = 'ALERTA: CST/CSOSN de ST com CFOP a revisar'
+                        auditoria_tributaria[chave_auditoria] = {
+                            'ncm': ncm,
+                            'cfop': cfop,
+                            'cst': cst,
+                            'status': status,
+                            'valor': 0.0,
+                            'operacao': operacao,
+                        }
+                    auditoria_tributaria[chave_auditoria]['valor'] += val
+
+                if 'NFC-e' in tipo:
+                    chave_prod = f'{codigo}_{cfop}_{cst}'
+                    if chave_prod not in validacao_produtos:
+                        status_prod = 'OK'
+                        motivo = 'Sem divergências nas regras atualmente verificadas.'
+                        if len(ncm) != 8 or not ncm.isdigit():
+                            status_prod = 'Erro: NCM inválido'
+                            motivo = 'O NCM deve possuir 8 dígitos numéricos.'
+                        else:
+                            nome_up = nome.upper()
+                            is_combustivel = (
+                                ncm.startswith('2710')
+                                and any(t in nome_up for t in ['GASOLINA', 'DIESEL'])
+                                and not any(sub in nome_up for sub in ['ADITIVO', 'FLUIDO', 'GRAXA', 'ARLA'])
+                            )
+                            if is_combustivel and cst not in {'60', '060', '04', '01', '61', '061'}:
+                                status_prod = 'Alerta: Tributação Combustível'
+                                motivo = f'O CST {cst} merece revisão para este produto.'
+                        nome_limpo = re.sub(r'^B\d{2}[-\s]*', '', nome).strip()
+                        validacao_produtos[chave_prod] = {
+                            'codigo': codigo,
+                            'ncm': ncm,
+                            'produto': nome_limpo[:50],
+                            'cfop': cfop,
+                            'cst': cst,
+                            'status': status_prod,
+                            'motivo': motivo,
+                        }
+
+    lista_diario = [
+        {'data': k, 'valor': round(v, 2)}
+        for k, v in sorted(faturamento_diario.items())
+    ]
+
+    erros = []
+    for erro in erros_leitura:
+        erros.append({
+            'arquivo': erro.get('arquivo', ''),
+            'motivo': erro.get('mensagem', ''),
+            'caminho': '',
+        })
+
+    notas_front = []
+    for nota in notas:
+        n = dict(nota)
+        n.pop('itens', None)
+        n.pop('validacoes', None)
+        notas_front.append(n)
+
+    return json_safe({
+        'status': 'sucesso',
+        'notas': notas_front,
+        'cfop': [v for v in resumo_cfop.values() if v['valor'] > 0],
+        'cst': [v for v in resumo_cst.values() if v['valor'] > 0],
+        'serie': [v for v in resumo_serie.values() if v['valor'] > 0],
+        'auditoria': list(auditoria_tributaria.values()),
+        'diario': lista_diario,
+        'produtos': list(validacao_produtos.values()),
+        'erros': erros,
+        'total_erros': len(erros),
+        'total_lidos': len(estado.get('arquivos', [])),
+        'duplicidades': duplicidades,
+        'avisos': estado.get('avisos_upload', []),
+    })
+
+
 @app.before_request
 def housekeeping():
     _limpar_expiradas()
@@ -148,7 +320,9 @@ def housekeeping():
 
 @app.get('/')
 def index():
-    return render_template('web.html')
+    html = render_template('dashboard.html')
+    ponte = '<script src="/static/web_bridge.js"></script>'
+    return Response(html.replace('</body>', f'{ponte}</body>'), mimetype='text/html')
 
 
 @app.get('/health')
@@ -160,7 +334,7 @@ def health():
 def criar_consulta():
     uploads = request.files.getlist('arquivos')
     if not uploads or not any(a.filename for a in uploads):
-        return jsonify({'status': 'erro', 'mensagem': 'Selecione XMLs ou um arquivo ZIP.'}), 400
+        return jsonify({'status': 'erro', 'mensagem': 'Selecione XMLs, uma pasta ou um arquivo ZIP.'}), 400
 
     consulta_id = str(uuid.uuid4())
     pasta = BASE_TEMP / consulta_id
@@ -177,7 +351,11 @@ def criar_consulta():
 
     if not arquivos:
         shutil.rmtree(pasta, ignore_errors=True)
-        return jsonify({'status': 'erro', 'mensagem': 'Nenhum XML utilizável foi encontrado.', 'avisos': avisos}), 400
+        return jsonify({
+            'status': 'erro',
+            'mensagem': 'Nenhum XML utilizável foi encontrado.',
+            'avisos': avisos,
+        }), 400
 
     agora = time.time()
     estado = {
@@ -191,7 +369,12 @@ def criar_consulta():
         'avisos_upload': avisos,
     }
     _salvar_estado(pasta, estado)
-    return jsonify({'status': 'sucesso', 'consulta_id': consulta_id, 'resumo': _resumo(estado), 'avisos': avisos})
+    return jsonify({
+        'status': 'sucesso',
+        'consulta_id': consulta_id,
+        'resumo': _resumo(estado),
+        'avisos': avisos,
+    })
 
 
 @app.post('/api/consultas/<consulta_id>/processar')
@@ -217,7 +400,14 @@ def processar_consulta(consulta_id):
         try:
             conteudo = caminho.read_bytes()
             root = ET.fromstring(conteudo)
-            estado['resultados'].append(validar_documento(root, item['nome']))
+            resultado = validar_documento(root, item['nome'])
+
+            parser = ParserFactory.get_parser(root)
+            if parser is not None and resultado.get('tipo') != 'Desconhecido':
+                info = parser.extrair(root, ArquivoInfo(item['nome']))
+                resultado['itens'] = json_safe(info.itens)
+
+            estado['resultados'].append(resultado)
         except ET.ParseError as exc:
             estado['erros_leitura'].append({
                 'arquivo': item['nome'],
@@ -238,7 +428,11 @@ def processar_consulta(consulta_id):
     estado['next_index'] = fim
     _salvar_estado(pasta, estado)
     concluido = fim >= len(arquivos)
-    return jsonify({'status': 'sucesso', 'concluido': concluido, 'resumo': _resumo(estado)})
+    return jsonify({
+        'status': 'sucesso',
+        'concluido': concluido,
+        'resumo': _resumo(estado),
+    })
 
 
 @app.get('/api/consultas/<consulta_id>')
@@ -259,6 +453,16 @@ def obter_consulta(consulta_id):
     })
 
 
+@app.get('/api/consultas/<consulta_id>/dashboard')
+def dashboard_consulta(consulta_id):
+    try:
+        pasta = _consulta_dir(consulta_id)
+        estado = _carregar_estado(pasta)
+    except (ValueError, FileNotFoundError) as exc:
+        return jsonify({'status': 'erro', 'mensagem': str(exc)}), 404
+    return jsonify(_dashboard_payload(estado))
+
+
 @app.get('/api/consultas/<consulta_id>/relatorio.csv')
 def relatorio_csv(consulta_id):
     try:
@@ -267,16 +471,17 @@ def relatorio_csv(consulta_id):
     except (ValueError, FileNotFoundError) as exc:
         return jsonify({'status': 'erro', 'mensagem': str(exc)}), 404
 
+    dashboard = _dashboard_payload(estado)
     saida = io.StringIO()
     writer = csv.writer(saida, delimiter=';')
     writer.writerow(['Arquivo', 'Tipo', 'Numero', 'Serie', 'Data', 'Operacao', 'Valor', 'Status', 'Chave'])
-    for r in estado.get('resultados', []):
+    for r in dashboard.get('notas', []):
         writer.writerow([
             r.get('arquivo', ''), r.get('tipo', ''), r.get('numero', ''), r.get('serie', ''),
             r.get('data', ''), r.get('operacao', ''), r.get('valor', ''), r.get('status', ''), r.get('chave', ''),
         ])
-    for e in estado.get('erros_leitura', []):
-        writer.writerow([e.get('arquivo', ''), '', '', '', '', '', '', e.get('mensagem', ''), ''])
+    for e in dashboard.get('erros', []):
+        writer.writerow([e.get('arquivo', ''), '', '', '', '', '', '', e.get('motivo', ''), ''])
 
     conteudo = '\ufeff' + saida.getvalue()
     return Response(
