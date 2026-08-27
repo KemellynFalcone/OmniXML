@@ -3,112 +3,217 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>OmniXML Web - Validação Fiscal</title>
+    <title>OmniXML Web - Auditoria Fiscal</title>
     <script src="https://cdn.tailwindcss.com"></script>
 </head>
 <body class="min-h-screen bg-slate-950 text-slate-100">
-    <main class="max-w-5xl mx-auto px-6 py-12">
-        <div class="flex items-center justify-between gap-4 mb-10">
+    <main class="max-w-6xl mx-auto px-6 py-10">
+        <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-5 mb-8">
             <div>
-                <p class="text-blue-400 text-sm font-bold uppercase tracking-[0.2em]">OmniXML</p>
-                <h1 class="text-4xl font-black mt-2">Validador fiscal web</h1>
-                <p class="text-slate-400 mt-3">Prévia de produção da Fase 2: XML bem-formado, documento reconhecido, chave/DV e protocolo SEFAZ.</p>
+                <p class="text-blue-400 text-sm font-bold uppercase tracking-[0.2em]">OmniXML Web</p>
+                <h1 class="text-4xl font-black mt-2">Consulta fiscal temporária</h1>
+                <p class="text-slate-400 mt-3 max-w-3xl">Envie XMLs ou ZIPs, processe a consulta e baixe o relatório. Os arquivos são temporários e são apagados conforme o processamento avança ou quando você encerra a consulta.</p>
             </div>
-            <span class="text-xs px-3 py-1 rounded-full bg-amber-500/10 text-amber-300 border border-amber-500/20">Beta</span>
+            <div class="flex gap-2">
+                <span class="text-xs px-3 py-1 rounded-full bg-emerald-500/10 text-emerald-300 border border-emerald-500/20">Sem banco de dados</span>
+                <span class="text-xs px-3 py-1 rounded-full bg-blue-500/10 text-blue-300 border border-blue-500/20">Beta web</span>
+            </div>
         </div>
 
         <section class="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-2xl">
             <form id="formUpload" class="space-y-5">
-                <label class="block">
-                    <span class="block text-sm font-semibold mb-2">Arquivo XML</span>
-                    <input id="arquivo" name="arquivo" type="file" accept=".xml,text/xml,application/xml" required
-                           class="block w-full text-sm text-slate-300 file:mr-4 file:py-2.5 file:px-4 file:rounded-lg file:border-0 file:bg-blue-600 file:text-white file:font-semibold hover:file:bg-blue-500 bg-slate-950 border border-slate-700 rounded-xl p-2">
-                </label>
-                <div class="flex items-center gap-3">
-                    <button id="btnValidar" type="submit" class="bg-blue-600 hover:bg-blue-500 disabled:opacity-50 px-5 py-2.5 rounded-xl font-bold transition">
-                        Validar XML
+                <div id="dropZone" class="border-2 border-dashed border-slate-700 hover:border-blue-500 rounded-2xl p-8 text-center transition cursor-pointer">
+                    <input id="arquivos" name="arquivos" type="file" accept=".xml,.zip,application/xml,application/zip" multiple class="hidden">
+                    <div class="text-3xl mb-3">📂</div>
+                    <div class="font-bold text-lg">Arraste XMLs ou ZIPs aqui</div>
+                    <div class="text-sm text-slate-400 mt-2">ou clique para selecionar vários arquivos</div>
+                    <div id="selecao" class="text-xs text-blue-300 mt-4"></div>
+                </div>
+                <div class="flex flex-wrap items-center gap-3">
+                    <button id="btnIniciar" type="submit" class="bg-blue-600 hover:bg-blue-500 disabled:opacity-50 px-5 py-2.5 rounded-xl font-bold transition">
+                        Iniciar consulta
                     </button>
+                    <button id="btnNova" type="button" class="hidden bg-slate-800 hover:bg-slate-700 px-5 py-2.5 rounded-xl font-bold transition">
+                        Nova consulta
+                    </button>
+                    <a id="btnRelatorio" class="hidden bg-emerald-600 hover:bg-emerald-500 px-5 py-2.5 rounded-xl font-bold transition" href="#">
+                        Baixar relatório CSV
+                    </a>
                     <span id="status" class="text-sm text-slate-400"></span>
+                </div>
+                <div id="progressWrap" class="hidden">
+                    <div class="flex justify-between text-xs text-slate-400 mb-2"><span>Progresso</span><span id="progressText">0%</span></div>
+                    <div class="h-2 bg-slate-800 rounded-full overflow-hidden"><div id="progressBar" class="h-full bg-blue-500 transition-all" style="width:0%"></div></div>
                 </div>
             </form>
         </section>
 
         <section id="resultado" class="hidden mt-8 space-y-6">
-            <div class="grid md:grid-cols-4 gap-4" id="cards"></div>
+            <div class="grid grid-cols-2 md:grid-cols-5 gap-4" id="cards"></div>
+
+            <div id="avisosBox" class="hidden bg-amber-500/10 border border-amber-500/20 rounded-2xl p-5">
+                <h2 class="font-bold text-amber-300">Avisos do envio</h2>
+                <ul id="avisos" class="text-sm text-amber-100/80 mt-2 space-y-1"></ul>
+            </div>
+
             <div class="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden">
-                <div class="px-6 py-4 border-b border-slate-800">
-                    <h2 class="font-bold text-lg">Resultado das verificações</h2>
+                <div class="px-6 py-4 border-b border-slate-800 flex items-center justify-between">
+                    <h2 class="font-bold text-lg">Documentos processados</h2>
+                    <span id="contadorDocs" class="text-xs text-slate-500"></span>
                 </div>
-                <div id="validacoes" class="divide-y divide-slate-800"></div>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-sm">
+                        <thead class="bg-slate-950/60 text-slate-400 text-xs uppercase">
+                            <tr><th class="text-left p-3">Arquivo</th><th class="text-left p-3">Tipo</th><th class="text-left p-3">Número</th><th class="text-left p-3">Operação</th><th class="text-right p-3">Valor</th><th class="text-left p-3">Status</th></tr>
+                        </thead>
+                        <tbody id="tabelaDocs" class="divide-y divide-slate-800"></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div id="errosBox" class="hidden bg-slate-900 border border-red-900/40 rounded-2xl overflow-hidden">
+                <div class="px-6 py-4 border-b border-slate-800"><h2 class="font-bold text-lg text-red-300">Falhas de leitura</h2></div>
+                <div id="errosLeitura" class="divide-y divide-slate-800"></div>
             </div>
         </section>
 
         <footer class="mt-10 text-xs text-slate-500 leading-relaxed">
-            Esta versão é uma prévia técnica. As verificações exibidas correspondem somente às regras já implementadas e não substituem validação oficial da SEFAZ nem análise tributária profissional. Os XMLs enviados são processados em memória nesta demonstração.
+            Privacidade: a consulta usa apenas armazenamento temporário do servidor. Cada XML é removido após ser processado; a sessão restante expira automaticamente em até 2 horas ou imediatamente quando você inicia uma nova consulta. O CSV é gerado sob demanda, sem ser armazenado permanentemente.
         </footer>
     </main>
 
 <script>
 const form = document.getElementById('formUpload');
-const btn = document.getElementById('btnValidar');
+const input = document.getElementById('arquivos');
+const dropZone = document.getElementById('dropZone');
+const btn = document.getElementById('btnIniciar');
+const btnNova = document.getElementById('btnNova');
+const btnRelatorio = document.getElementById('btnRelatorio');
 const statusEl = document.getElementById('status');
 const resultadoEl = document.getElementById('resultado');
+const progressWrap = document.getElementById('progressWrap');
+const progressBar = document.getElementById('progressBar');
+const progressText = document.getElementById('progressText');
+let consultaId = null;
+let selectedFiles = [];
 
 function esc(value) {
     return String(value ?? '').replace(/[&<>'"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]));
 }
+function moeda(v) { return Number(v || 0).toLocaleString('pt-BR', {style:'currency', currency:'BRL'}); }
+function statusClass(status) {
+    if ((status || '').toLowerCase().includes('erro')) return 'text-red-300';
+    if ((status || '').toLowerCase().includes('alerta')) return 'text-amber-300';
+    return 'text-emerald-300';
+}
+function atualizarSelecao(files) {
+    selectedFiles = Array.from(files || []);
+    document.getElementById('selecao').textContent = selectedFiles.length ? `${selectedFiles.length} arquivo(s) selecionado(s)` : '';
+}
+input.addEventListener('change', () => atualizarSelecao(input.files));
+dropZone.addEventListener('click', () => input.click());
+dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('border-blue-500'); });
+dropZone.addEventListener('dragleave', () => dropZone.classList.remove('border-blue-500'));
+dropZone.addEventListener('drop', e => { e.preventDefault(); dropZone.classList.remove('border-blue-500'); atualizarSelecao(e.dataTransfer.files); });
 
-function badge(severidade) {
-    if (severidade === 'OK') return 'bg-emerald-500/10 text-emerald-300 border-emerald-500/20';
-    if (severidade === 'ERRO') return 'bg-red-500/10 text-red-300 border-red-500/20';
-    return 'bg-amber-500/10 text-amber-300 border-amber-500/20';
+async function excluirConsultaAtual() {
+    if (!consultaId) return;
+    try { await fetch(`/api/consultas/${consultaId}`, {method:'DELETE'}); } catch (_) {}
+    consultaId = null;
 }
 
-form.addEventListener('submit', async (event) => {
-    event.preventDefault();
-    const arquivo = document.getElementById('arquivo').files[0];
-    if (!arquivo) return;
-
-    btn.disabled = true;
-    statusEl.textContent = 'Validando...';
+async function novaConsulta() {
+    await excluirConsultaAtual();
+    selectedFiles = [];
+    input.value = '';
+    document.getElementById('selecao').textContent = '';
     resultadoEl.classList.add('hidden');
+    progressWrap.classList.add('hidden');
+    progressBar.style.width = '0%';
+    btn.classList.remove('hidden');
+    btn.disabled = false;
+    btnNova.classList.add('hidden');
+    btnRelatorio.classList.add('hidden');
+    statusEl.textContent = '';
+}
+btnNova.addEventListener('click', novaConsulta);
+window.addEventListener('beforeunload', () => {
+    if (consultaId) navigator.sendBeacon(`/api/consultas/${consultaId}`); // DELETE não é suportado por sendBeacon; TTL garante limpeza residual.
+});
+
+function renderResumo(payload) {
+    const r = payload.resumo;
+    document.getElementById('cards').innerHTML = [
+        ['Total', r.total], ['Processados', r.processados], ['Conformes', r.conformes], ['Alertas', r.alertas], ['Erros', r.erros]
+    ].map(([t,v]) => `<div class="bg-slate-900 border border-slate-800 rounded-2xl p-4"><div class="text-xs uppercase text-slate-500 font-bold">${esc(t)}</div><div class="mt-2 text-2xl font-black">${esc(v)}</div></div>`).join('');
+
+    const docs = payload.resultados || [];
+    document.getElementById('contadorDocs').textContent = `${docs.length} documento(s)`;
+    document.getElementById('tabelaDocs').innerHTML = docs.map(d => `<tr>
+        <td class="p-3 max-w-xs truncate" title="${esc(d.arquivo)}">${esc(d.arquivo)}</td>
+        <td class="p-3">${esc(d.tipo)}</td><td class="p-3">${esc(d.numero || '—')}</td><td class="p-3">${esc(d.operacao || '—')}</td>
+        <td class="p-3 text-right font-semibold">${moeda(d.valor)}</td><td class="p-3 font-bold ${statusClass(d.status)}">${esc(d.status)}</td>
+    </tr>`).join('');
+
+    const erros = payload.erros_leitura || [];
+    const errosBox = document.getElementById('errosBox');
+    errosBox.classList.toggle('hidden', !erros.length);
+    document.getElementById('errosLeitura').innerHTML = erros.map(e => `<div class="p-4"><div class="font-bold text-red-300">${esc(e.arquivo)}</div><div class="text-sm text-slate-300 mt-1">${esc(e.mensagem)}</div></div>`).join('');
+
+    const avisos = payload.avisos || [];
+    document.getElementById('avisosBox').classList.toggle('hidden', !avisos.length);
+    document.getElementById('avisos').innerHTML = avisos.map(a => `<li>• ${esc(a)}</li>`).join('');
+    resultadoEl.classList.remove('hidden');
+}
+
+async function carregarResultado() {
+    const response = await fetch(`/api/consultas/${consultaId}`);
+    const payload = await response.json();
+    if (!response.ok) throw new Error(payload.mensagem || 'Consulta indisponível.');
+    renderResumo(payload);
+    return payload;
+}
+
+form.addEventListener('submit', async event => {
+    event.preventDefault();
+    if (!selectedFiles.length) { statusEl.textContent = 'Selecione ao menos um XML ou ZIP.'; return; }
+    btn.disabled = true;
+    statusEl.className = 'text-sm text-slate-400';
+    statusEl.textContent = 'Enviando arquivos...';
+    progressWrap.classList.remove('hidden');
 
     const data = new FormData();
-    data.append('arquivo', arquivo);
+    selectedFiles.forEach(f => data.append('arquivos', f, f.name));
 
     try {
-        const response = await fetch('/api/validar-xml', { method: 'POST', body: data });
-        const payload = await response.json();
-        if (!response.ok) throw new Error(payload.mensagem || 'Falha na validação.');
+        await excluirConsultaAtual();
+        const createResp = await fetch('/api/consultas', {method:'POST', body:data});
+        const createPayload = await createResp.json();
+        if (!createResp.ok) throw new Error(createPayload.mensagem || 'Falha ao criar consulta.');
+        consultaId = createPayload.consulta_id;
+        statusEl.textContent = `Consulta criada com ${createPayload.resumo.total} XML(s).`;
 
-        const r = payload.resultado;
-        document.getElementById('cards').innerHTML = [
-            ['Documento', r.tipo],
-            ['Número', r.numero || '—'],
-            ['Operação', r.operacao || '—'],
-            ['Status', r.status],
-        ].map(([titulo, valor]) => `
-            <div class="bg-slate-900 border border-slate-800 rounded-2xl p-4">
-                <div class="text-xs uppercase tracking-wider text-slate-500 font-bold">${esc(titulo)}</div>
-                <div class="mt-2 font-bold text-sm break-words">${esc(valor)}</div>
-            </div>`).join('');
+        let concluido = false;
+        while (!concluido) {
+            const resp = await fetch(`/api/consultas/${consultaId}/processar?limite=100`, {method:'POST'});
+            const p = await resp.json();
+            if (!resp.ok) throw new Error(p.mensagem || 'Falha durante o processamento.');
+            concluido = p.concluido;
+            const pct = p.resumo.total ? Math.round((p.resumo.processados / p.resumo.total) * 100) : 100;
+            progressBar.style.width = `${pct}%`;
+            progressText.textContent = `${pct}%`;
+            statusEl.textContent = `Processando ${p.resumo.processados} de ${p.resumo.total}...`;
+        }
 
-        document.getElementById('validacoes').innerHTML = (r.validacoes || []).map(v => `
-            <div class="p-5 flex gap-4 items-start">
-                <span class="shrink-0 text-xs px-2.5 py-1 rounded-full border font-bold ${badge(v.severidade)}">${esc(v.severidade)}</span>
-                <div class="min-w-0">
-                    <div class="font-mono text-xs text-blue-400">${esc(v.codigo)}</div>
-                    <div class="font-semibold mt-1">${esc(v.mensagem)}</div>
-                    ${v.campo ? `<div class="text-xs text-slate-500 mt-1">Campo: ${esc(v.campo)}</div>` : ''}
-                </div>
-            </div>`).join('');
-
-        resultadoEl.classList.remove('hidden');
-        statusEl.textContent = 'Validação concluída.';
+        const final = await carregarResultado();
+        statusEl.textContent = 'Consulta concluída. XMLs de origem já foram removidos do armazenamento temporário.';
+        btn.classList.add('hidden');
+        btnNova.classList.remove('hidden');
+        btnRelatorio.classList.remove('hidden');
+        btnRelatorio.href = `/api/consultas/${consultaId}/relatorio.csv`;
     } catch (error) {
         statusEl.textContent = error.message;
         statusEl.className = 'text-sm text-red-400';
-    } finally {
         btn.disabled = false;
     }
 });
