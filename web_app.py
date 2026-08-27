@@ -21,6 +21,7 @@ BASE_TEMP = Path(tempfile.gettempdir()) / 'omnixml-web'
 BASE_TEMP.mkdir(parents=True, exist_ok=True)
 SESSION_TTL_SECONDS = 2 * 60 * 60
 MAX_XML_BYTES = 20 * 1024 * 1024
+MAX_TOTAL_XML_BYTES = 500 * 1024 * 1024
 MAX_XMLS_PER_CONSULTA = 5000
 BATCH_DEFAULT = 100
 
@@ -74,10 +75,13 @@ def _novo_xml(pasta: Path, nome_original: str, conteudo: bytes, arquivos: list) 
         raise ValueError(f'{nome_original}: arquivo vazio.')
     if len(conteudo) > MAX_XML_BYTES:
         raise ValueError(f'{nome_original}: XML acima de 20 MB.')
+    total_atual = sum(int(item.get('size', 0)) for item in arquivos)
+    if total_atual + len(conteudo) > MAX_TOTAL_XML_BYTES:
+        raise ValueError('Os XMLs expandidos excedem o limite temporário de 500 MB por consulta.')
 
     identificador = f'{uuid.uuid4().hex}.xml'
     (pasta / 'uploads' / identificador).write_bytes(conteudo)
-    arquivos.append({'nome': Path(nome_original).name or 'documento.xml', 'stored': identificador})
+    arquivos.append({'nome': Path(nome_original).name or 'documento.xml', 'stored': identificador, 'size': len(conteudo)})
 
 
 def _adicionar_upload(pasta: Path, upload, arquivos: list, avisos: list) -> None:
@@ -106,6 +110,8 @@ def _adicionar_upload(pasta: Path, upload, arquivos: list, avisos: list) -> None
                     try:
                         _novo_xml(pasta, Path(info.filename).name, zf.read(info), arquivos)
                     except ValueError as exc:
+                        if '500 MB' in str(exc) or '5000' in str(exc):
+                            raise
                         avisos.append(str(exc))
         except zipfile.BadZipFile:
             raise ValueError(f'{nome}: ZIP inválido ou corrompido.')
@@ -232,11 +238,7 @@ def processar_consulta(consulta_id):
     estado['next_index'] = fim
     _salvar_estado(pasta, estado)
     concluido = fim >= len(arquivos)
-    return jsonify({
-        'status': 'sucesso',
-        'concluido': concluido,
-        'resumo': _resumo(estado),
-    })
+    return jsonify({'status': 'sucesso', 'concluido': concluido, 'resumo': _resumo(estado)})
 
 
 @app.get('/api/consultas/<consulta_id>')
@@ -296,7 +298,4 @@ def excluir_consulta(consulta_id):
 
 @app.errorhandler(413)
 def arquivo_muito_grande(_):
-    return jsonify({
-        'status': 'erro',
-        'mensagem': 'Envio acima do limite de 200 MB por consulta.',
-    }), 413
+    return jsonify({'status': 'erro', 'mensagem': 'Envio acima do limite de 200 MB por consulta.'}), 413
