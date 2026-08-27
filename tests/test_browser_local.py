@@ -1,10 +1,7 @@
 import web_app_browser
 
 
-def test_home_usa_processamento_local(monkeypatch, tmp_path):
-    base = tmp_path / 'omnixml-web'
-    base.mkdir()
-    monkeypatch.setattr(web_app_browser.legacy, 'BASE_TEMP', base)
+def test_home_usa_processamento_local():
     client = web_app_browser.app.test_client()
     resposta = client.get('/')
     html = resposta.get_data(as_text=True)
@@ -13,10 +10,10 @@ def test_home_usa_processamento_local(monkeypatch, tmp_path):
     assert '/static/browser_local.js?v=1' in html
 
 
-def test_health_permanece_disponivel(monkeypatch, tmp_path):
-    base = tmp_path / 'omnixml-web'
-    base.mkdir()
-    monkeypatch.setattr(web_app_browser.legacy, 'BASE_TEMP', base)
+def test_health_indica_processamento_local():
     client = web_app_browser.app.test_client()
     resposta = client.get('/health')
     assert resposta.status_code == 200
+    payload = resposta.get_json()
+    assert payload['processing'] == 'browser-local'
+    assert payload['xml_upload'] is False
