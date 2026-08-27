@@ -7,6 +7,7 @@ def configurar_temp(monkeypatch, tmp_path):
     base = tmp_path / 'omnixml-web'
     base.mkdir()
     monkeypatch.setattr(web_app_v3.legacy, 'BASE_TEMP', base)
+    monkeypatch.setitem(web_app_v3.app.view_functions, 'index', web_app_v3.index_v3)
     return web_app_v3.app.test_client()
 
 
