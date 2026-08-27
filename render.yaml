@@ -4,6 +4,6 @@ services:
     runtime: python
     plan: free
     buildCommand: pip install -r requirements-prod.txt
-    startCommand: gunicorn web_app_v3:app
+    startCommand: gunicorn web_app_browser:app
     healthCheckPath: /health
     autoDeployTrigger: commit
