@@ -11,6 +11,15 @@ def configurar_temp(monkeypatch, tmp_path):
     return web_app.app.test_client()
 
 
+def test_home_serve_dashboard_original_com_ponte_web(monkeypatch, tmp_path):
+    client = configurar_temp(monkeypatch, tmp_path)
+    resposta = client.get('/')
+    html = resposta.get_data(as_text=True)
+    assert resposta.status_code == 200
+    assert 'Dashboard Geral' in html
+    assert '/static/web_bridge.js' in html
+
+
 def test_consulta_processa_xml_malformado_e_pode_ser_excluida(monkeypatch, tmp_path):
     client = configurar_temp(monkeypatch, tmp_path)
 
@@ -32,6 +41,13 @@ def test_consulta_processa_xml_malformado_e_pode_ser_excluida(monkeypatch, tmp_p
     assert resultado['resumo']['processados'] == 1
     assert resultado['resumo']['erros'] == 1
     assert resultado['erros_leitura'][0]['codigo'] == 'XML-001'
+
+    dashboard = client.get(f'/api/consultas/{consulta_id}/dashboard')
+    assert dashboard.status_code == 200
+    dash = dashboard.get_json()
+    assert dash['total_lidos'] == 1
+    assert dash['total_erros'] == 1
+    assert dash['erros'][0]['arquivo'] == 'ruim.xml'
 
     exclusao = client.delete(f'/api/consultas/{consulta_id}')
     assert exclusao.status_code == 200
