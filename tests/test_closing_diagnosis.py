@@ -11,16 +11,18 @@ def test_home_carrega_diagnostico_antes_do_processador_local():
     assert diagnostico < processador
 
 
-def test_diagnostico_contem_regras_de_fechamento_e_lacunas():
+def test_diagnostico_contem_regra_de_lacunas_somente_em_saidas():
     script = Path('static/closing_diagnosis_v2.js').read_text(encoding='utf-8')
     assert 'detectarLacunas' in script
     assert 'Diagnóstico do fechamento' in script
     assert 'Falhas fiscais' in script
-    assert 'Lacunas plausíveis' in script
+    assert 'Lacunas nas saídas' in script
     assert 'Duplicidades' in script
     assert 'Alertas tributários' in script
-    assert 'qtd > 20' in script
-    assert 'mes' in script
+    assert "operacao || '').trim() !== 'Saída'" in script
+    assert 'Inicial na pasta' in script
+    assert 'Final na pasta' in script
+    assert 'Documentos de entrada não participam' in script
 
 
 def test_health_informa_diagnostico_de_fechamento():
