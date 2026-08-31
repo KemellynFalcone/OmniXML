@@ -10,7 +10,8 @@ def index():
         '<script src="/static/failure_table_v2.js?v=2"></script>'
         '<script src="/static/browser_validation.js?v=1"></script>'
         '<script src="/static/failure_summary.js?v=1"></script>'
-        '<script src="/static/closing_diagnosis_v2.js?v=2"></script>'
+        '<script src="/static/inutilization_capture.js?v=1"></script>'
+        '<script src="/static/closing_diagnosis_v2.js?v=3"></script>'
         '<script src="/static/browser_local_v2.js?v=2"></script>'
     )
     return Response(html.replace('</body>', f'{ponte}</body>'), mimetype='text/html')
@@ -26,6 +27,7 @@ def health():
         'fiscal_validation': 'authorization-structure',
         'failure_summary': 'unique-files',
         'failure_table': 'v2-key-value-reason',
-        'closing_diagnosis': 'compact-conservative-v2',
+        'closing_diagnosis': 'sequence-with-inutilization-reconciliation',
+        'inutilization_reconciliation': 'homologated-cstat-102',
         'xml_upload': False,
     })
