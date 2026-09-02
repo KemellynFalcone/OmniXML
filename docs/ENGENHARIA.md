@@ -121,20 +121,24 @@ Todo XML selecionado deve ser considerado entrada não confiável, mesmo quando 
 O desenho browser-local evita upload fiscal no fluxo web atual. Uma futura API, persistência, autenticação, certificado digital ou integração SEFAZ muda a fronteira de segurança e exige nova análise de ameaça.
 
 ### 11.3 Hardening HTTP
-A aplicação aplica cabeçalhos de segurança, incluindo CSP, proteção contra framing, `nosniff`, política de referência, restrição de permissões e isolamento de origem. A CSP atual mantém exceções necessárias ao dashboard legado/CDNs e deve ser progressivamente endurecida removendo `unsafe-inline` e dependências externas quando possível.
+A aplicação aplica cabeçalhos de segurança, incluindo CSP, proteção contra framing, `nosniff`, política de referência, restrição de permissões e isolamento de origem. A CSP aplicada em produção bloqueia objetos, frames e mídia não necessários. Como o dashboard ainda possui scripts inline legados, a política aplicada ainda contém `unsafe-inline` em `script-src`.
+
+A Fase 3 acrescenta uma segunda política `Content-Security-Policy-Report-Only` sem `unsafe-inline` em scripts. Ela não bloqueia o dashboard atual; serve para mapear violações e orientar a migração dos scripts inline antes de tornar a política estrita obrigatória.
 
 ### 11.4 XML hostil, XSS e disponibilidade
-`browser_security_v2.js` adiciona uma camada anterior ao processador local. Ela trata strings destinadas às principais DataTables como conteúdo textual não confiável e escapa caracteres HTML antes da renderização, reduzindo a superfície de XSS proveniente de campos como `xNome`, `xProd`, `xMotivo`, NCM, CFOP e demais textos derivados de XML/SPED.
+`browser_security_v2.js` permanece como primeira camada de compatibilidade: strings destinadas às principais DataTables são escapadas antes da renderização e a seleção local recebe limites preventivos de recursos.
 
-A mesma camada impõe limites preventivos de recursos na seleção local:
+Limites atuais:
 
 - até 50.000 arquivos por execução;
 - até 20 MB por XML individual;
 - até 1,5 GB no conjunto selecionado.
 
-Seleções que ultrapassam esses limites são interrompidas antes do processador principal para reduzir risco de esgotamento de memória/CPU no navegador. Esses limites são controles operacionais de segurança e podem ser revistos mediante teste de carga documentado.
+A Fase 3 adiciona `browser_security_v3.js`, carregado antes do processador fiscal. Sua função é defesa em profundidade contra regressões de DOM/XSS e navegação insegura. Em nós adicionados dinamicamente ao DOM, o módulo remove tags executáveis ou embutíveis (`script`, `iframe`, `object`, `embed`, `base`), atributos de evento não confiáveis, `srcdoc` e URLs com esquemas perigosos como `javascript:`, `vbscript:` e HTML em `data:` URLs.
 
-A sanitização atual é uma camada de compatibilidade sobre o dashboard legado. A meta arquitetural continua sendo eliminar sinks HTML desnecessários e utilizar APIs de DOM/texto seguras na origem.
+O único handler inline dinâmico preservado por compatibilidade é a ação de consulta SEFAZ, e somente quando segue o formato esperado: chave numérica de 44 dígitos e destino pertencente à lista de domínios fiscais permitidos. A função `copiarEAbrir` também é envolvida por uma validação equivalente antes de abrir destino externo.
+
+Essas proteções não encerram a migração. A meta arquitetural continua sendo remover os sinks `innerHTML`/HTML dinâmico na origem, substituir dados por `textContent` ou renderizadores seguros e, então, retirar `unsafe-inline` da CSP aplicada.
 
 ## 12. Dependências
 
@@ -144,9 +148,9 @@ Dependências JavaScript externas devem ser inventariadas; SRI ou hospedagem loc
 
 ## 13. Testes e CI
 
-GitHub Actions executa auditoria de dependências e `pytest` em Pull Requests para `main` e em pushes configurados. Toda alteração em regra fiscal ou controle de segurança relevante deve possuir teste de regressão correspondente.
+GitHub Actions executa auditoria de dependências e `pytest` em Pull Requests para `main`. O ruleset `Protect main` exige PR e status check antes do merge, bloqueia force push e exclusão da branch principal.
 
-A Fase 2 de segurança possui testes de presença/ordem do módulo, limites de seleção, sanitização das tabelas e sinalização da capacidade no healthcheck.
+A Fase 2 possui testes de presença/ordem do módulo, limites de seleção e sanitização das tabelas. A Fase 3 adiciona testes de regressão para CSP estrita em modo Report-Only, bloqueio de vetores DOM/XSS, validação de navegação SEFAZ e ordem de carregamento do novo módulo.
 
 Regra de engenharia do projeto:
 
@@ -163,10 +167,11 @@ Produção é servida por Gunicorn com o módulo `web_app_browser:app`. O Render
 - validação XSD oficial SEFAZ;
 - processamento SPED/EFD integralmente local;
 - inventário e redução de CDNs;
-- remoção progressiva de `unsafe-inline` da CSP;
-- auditoria sistemática remanescente de usos de `innerHTML` e renderizadores DataTables;
-- migração dos sinks legados para `textContent`/renderizadores seguros na origem;
+- remoção dos sinks `innerHTML`/renderizadores inseguros na origem;
+- migração dos handlers e scripts inline do template para arquivos externos;
+- remoção de `unsafe-inline` da CSP aplicada após a migração;
 - testes end-to-end em navegador com payloads XSS adversariais;
+- dependências JS locais/SRI;
 - Web Workers para cargas grandes;
 - testes de carga para calibrar limites de arquivos/memória;
 - eventual PWA/offline.
