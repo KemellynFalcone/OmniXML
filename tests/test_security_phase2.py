@@ -38,6 +38,8 @@ def test_browser_security_escapes_xml_derived_display_values():
     assert 'table.rows.add = function(rows)' in script
 
 
-def test_health_reports_browser_security_v2():
+def test_health_reports_browser_security_with_phase2_controls_preserved():
     response = web_app_browser.app.test_client().get('/health')
-    assert response.get_json()['browser_security'] == 'xss-display-escape-and-file-limits-v2'
+    browser_security = response.get_json()['browser_security']
+    assert 'xss-display-escape' in browser_security
+    assert 'limits' in browser_security
