@@ -123,16 +123,30 @@ O desenho browser-local evita upload fiscal no fluxo web atual. Uma futura API, 
 ### 11.3 Hardening HTTP
 A aplicação aplica cabeçalhos de segurança, incluindo CSP, proteção contra framing, `nosniff`, política de referência, restrição de permissões e isolamento de origem. A CSP atual mantém exceções necessárias ao dashboard legado/CDNs e deve ser progressivamente endurecida removendo `unsafe-inline` e dependências externas quando possível.
 
-### 11.4 XML hostil e disponibilidade
-Devem ser implementados/expandidos limites de quantidade e tamanho de arquivos para evitar consumo excessivo de memória/CPU no navegador. O parser do navegador não deve ser considerado mecanismo completo de validação fiscal.
+### 11.4 XML hostil, XSS e disponibilidade
+`browser_security_v2.js` adiciona uma camada anterior ao processador local. Ela trata strings destinadas às principais DataTables como conteúdo textual não confiável e escapa caracteres HTML antes da renderização, reduzindo a superfície de XSS proveniente de campos como `xNome`, `xProd`, `xMotivo`, NCM, CFOP e demais textos derivados de XML/SPED.
+
+A mesma camada impõe limites preventivos de recursos na seleção local:
+
+- até 50.000 arquivos por execução;
+- até 20 MB por XML individual;
+- até 1,5 GB no conjunto selecionado.
+
+Seleções que ultrapassam esses limites são interrompidas antes do processador principal para reduzir risco de esgotamento de memória/CPU no navegador. Esses limites são controles operacionais de segurança e podem ser revistos mediante teste de carga documentado.
+
+A sanitização atual é uma camada de compatibilidade sobre o dashboard legado. A meta arquitetural continua sendo eliminar sinks HTML desnecessários e utilizar APIs de DOM/texto seguras na origem.
 
 ## 12. Dependências
 
-Produção Python: Flask, defusedxml e Gunicorn. Dependências devem permanecer com faixas de versão controladas e passar por auditoria automatizada. Dependências JavaScript externas devem ser inventariadas; SRI ou hospedagem local são preferíveis quando compatíveis com a aplicação.
+Produção Python: Flask, defusedxml e Gunicorn. Dependências permanecem com faixas de versão controladas. O Dependabot monitora Python e GitHub Actions e o CI executa `pip-audit` sobre `requirements-prod.txt`, fazendo vulnerabilidades conhecidas detectadas pelo scanner falharem a validação do PR.
+
+Dependências JavaScript externas devem ser inventariadas; SRI ou hospedagem local são preferíveis quando compatíveis com a aplicação.
 
 ## 13. Testes e CI
 
-GitHub Actions executa `pytest` em Pull Requests para `main` e em pushes configurados. Toda alteração em regra fiscal deve possuir teste de regressão correspondente.
+GitHub Actions executa auditoria de dependências e `pytest` em Pull Requests para `main` e em pushes configurados. Toda alteração em regra fiscal ou controle de segurança relevante deve possuir teste de regressão correspondente.
+
+A Fase 2 de segurança possui testes de presença/ordem do módulo, limites de seleção, sanitização das tabelas e sinalização da capacidade no healthcheck.
 
 Regra de engenharia do projeto:
 
@@ -150,11 +164,11 @@ Produção é servida por Gunicorn com o módulo `web_app_browser:app`. O Render
 - processamento SPED/EFD integralmente local;
 - inventário e redução de CDNs;
 - remoção progressiva de `unsafe-inline` da CSP;
-- limites explícitos de arquivos/tamanho/complexidade;
-- auditoria sistemática de todos os usos de `innerHTML` e renderizadores DataTables;
-- scanner automatizado de dependências;
+- auditoria sistemática remanescente de usos de `innerHTML` e renderizadores DataTables;
+- migração dos sinks legados para `textContent`/renderizadores seguros na origem;
+- testes end-to-end em navegador com payloads XSS adversariais;
 - Web Workers para cargas grandes;
-- testes com XMLs adversariais;
+- testes de carga para calibrar limites de arquivos/memória;
 - eventual PWA/offline.
 
 ## 16. Princípio de classificação de achados

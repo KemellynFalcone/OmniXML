@@ -34,6 +34,7 @@ def aplicar_cabecalhos_seguranca(response):
 def index():
     html = render_template('dashboard.html')
     ponte = (
+        '<script src="/static/browser_security_v2.js?v=1"></script>'
         '<script src="/static/failure_table_v2.js?v=2"></script>'
         '<script src="/static/browser_validation.js?v=1"></script>'
         '<script src="/static/failure_summary.js?v=1"></script>'
@@ -57,5 +58,6 @@ def health():
         'closing_diagnosis': 'sequence-with-inutilization-reconciliation',
         'inutilization_reconciliation': 'homologated-cstat-102',
         'security_headers': 'hardening-v1',
+        'browser_security': 'xss-display-escape-and-file-limits-v2',
         'xml_upload': False,
     })
