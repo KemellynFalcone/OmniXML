@@ -19,5 +19,7 @@ jobs:
           cache: pip
       - name: Install dependencies
         run: pip install -r requirements-dev.txt
+      - name: Audit dependencies
+        run: pip-audit -r requirements-prod.txt
       - name: Run tests
         run: pytest -q
