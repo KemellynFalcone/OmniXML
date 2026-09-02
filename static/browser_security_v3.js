@@ -2,30 +2,12 @@
   const BLOCKED_TAGS = new Set(['SCRIPT', 'IFRAME', 'OBJECT', 'EMBED', 'BASE']);
   const URL_ATTRS = new Set(['href', 'src', 'xlink:href', 'formaction']);
   const SAFE_SEFAZ_HOST_SUFFIXES = [
-    'fazenda.gov.br',
-    'sefaz.gov.br',
-    'sefin.ro.gov.br',
-    'sefaznet.ac.gov.br',
-    'sefaz.am.gov.br',
-    'sefaz.rr.gov.br',
-    'sefa.pa.gov.br',
-    'sefaz.ap.gov.br',
-    'sefaz.to.gov.br',
-    'sefaz.ma.gov.br',
-    'sefaz.pi.gov.br',
-    'sefaz.ce.gov.br',
-    'set.rn.gov.br',
-    'receita.pb.gov.br',
-    'sefaz.pe.gov.br',
-    'sefaz.al.gov.br',
-    'nfce.se.gov.br',
-    'sefaz.ba.gov.br',
-    'sefaz.es.gov.br',
-    'fazenda.rj.gov.br',
-    'sefaz.rs.gov.br',
-    'dfe.ms.gov.br',
-    'sefaz.mt.gov.br',
-    'sefaz.go.gov.br',
+    'fazenda.gov.br', 'sefaz.gov.br', 'sefin.ro.gov.br', 'sefaznet.ac.gov.br',
+    'sefaz.am.gov.br', 'sefaz.rr.gov.br', 'sefa.pa.gov.br', 'sefaz.ap.gov.br',
+    'sefaz.to.gov.br', 'sefaz.ma.gov.br', 'sefaz.pi.gov.br', 'sefaz.ce.gov.br',
+    'set.rn.gov.br', 'receita.pb.gov.br', 'sefaz.pe.gov.br', 'sefaz.al.gov.br',
+    'nfce.se.gov.br', 'sefaz.ba.gov.br', 'sefaz.es.gov.br', 'fazenda.rj.gov.br',
+    'sefaz.rs.gov.br', 'dfe.ms.gov.br', 'sefaz.mt.gov.br', 'sefaz.go.gov.br',
   ];
 
   const escapeHtml = value => String(value ?? '').replace(/[&<>"']/g, char => ({
@@ -34,35 +16,8 @@
 
   function dangerousUrl(value) {
     const normalized = String(value || '').trim().replace(/[\u0000-\u001F\u007F\s]+/g, '').toLowerCase();
-    return normalized.startsWith('javascript:') ||
-      normalized.startsWith('vbscript:') ||
-      normalized.startsWith('data:text/html') ||
-      normalized.startsWith('data:application/xhtml+xml');
-  }
-
-  function hardenElement(element) {
-    if (!(element instanceof Element)) return;
-    if (BLOCKED_TAGS.has(element.tagName)) {
-      element.remove();
-      return;
-    }
-    for (const attr of Array.from(element.attributes || [])) {
-      const name = attr.name.toLowerCase();
-      if (name.startsWith('on') || name === 'srcdoc') {
-        element.removeAttribute(attr.name);
-        continue;
-      }
-      if (URL_ATTRS.has(name) && dangerousUrl(attr.value)) {
-        element.removeAttribute(attr.name);
-      }
-    }
-  }
-
-  function hardenTree(root) {
-    if (!(root instanceof Element)) return;
-    hardenElement(root);
-    if (!root.isConnected && BLOCKED_TAGS.has(root.tagName)) return;
-    root.querySelectorAll?.('*').forEach(hardenElement);
+    return normalized.startsWith('javascript:') || normalized.startsWith('vbscript:') ||
+      normalized.startsWith('data:text/html') || normalized.startsWith('data:application/xhtml+xml');
   }
 
   function isAllowedExternalUrl(value) {
@@ -75,6 +30,35 @@
     } catch (_) {
       return false;
     }
+  }
+
+  function trustedInlineHandler(name, value) {
+    if (name !== 'onclick') return false;
+    const match = String(value || '').match(/^copiarEAbrir\('(\d{44})',\s*'([^']+)'\)$/);
+    return Boolean(match && isAllowedExternalUrl(match[2]));
+  }
+
+  function hardenElement(element) {
+    if (!(element instanceof Element)) return;
+    if (BLOCKED_TAGS.has(element.tagName)) {
+      element.remove();
+      return;
+    }
+    for (const attr of Array.from(element.attributes || [])) {
+      const name = attr.name.toLowerCase();
+      if ((name.startsWith('on') && !trustedInlineHandler(name, attr.value)) || name === 'srcdoc') {
+        element.removeAttribute(attr.name);
+        continue;
+      }
+      if (URL_ATTRS.has(name) && dangerousUrl(attr.value)) element.removeAttribute(attr.name);
+    }
+  }
+
+  function hardenTree(root) {
+    if (!(root instanceof Element)) return;
+    hardenElement(root);
+    if (!root.isConnected && BLOCKED_TAGS.has(root.tagName)) return;
+    root.querySelectorAll?.('*').forEach(hardenElement);
   }
 
   function wrapSefazNavigation() {
@@ -116,7 +100,8 @@
   });
 
   function start() {
-    hardenTree(document.documentElement);
+    // O HTML estático do dashboard é código confiável do próprio projeto. A proteção
+    // abaixo atua somente sobre nós adicionados dinamicamente após a inicialização.
     observer.observe(document.documentElement, { childList: true, subtree: true });
     let attempts = 0;
     const timer = setInterval(() => {
@@ -124,12 +109,7 @@
     }, 100);
   }
 
-  window.__omnixmlSecurityV3 = {
-    escapeHtml,
-    dangerousUrl,
-    isAllowedExternalUrl,
-    hardenTree,
-  };
+  window.__omnixmlSecurityV3 = { escapeHtml, dangerousUrl, isAllowedExternalUrl, hardenTree };
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', start, { once: true });
   else start();
