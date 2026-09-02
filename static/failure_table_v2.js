@@ -12,9 +12,17 @@
     return null;
   };
   const txt = node => node && node.textContent ? node.textContent.trim() : '';
-  const escapeHtml = value => String(value ?? '').replace(/[&<>\"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','\"':'&quot;',"'":'&#39;'}[c]));
+  const escapeHtml = value => String(value ?? '').replace(/[&<>\"']/g, c => ({
+    '&': '&amp;', '<': '&lt;', '>': '&gt;', '\"': '&quot;', "'": '&#39;'
+  }[c]));
   const brl = value => Number(value || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
   const basename = value => String(value || '').split(/[\\/]/).pop();
+  const node = (tag, className = '', text = '') => {
+    const el = document.createElement(tag);
+    if (className) el.className = className;
+    if (text !== '') el.textContent = String(text);
+    return el;
+  };
 
   function extractMeta(xml, arquivo) {
     try {
@@ -60,6 +68,15 @@
     return r.length > 48 ? `${r.slice(0, 45)}...` : r;
   }
 
+  function summaryCard(label, id, boxClass, labelClass, valueClass, initial) {
+    const box = node('div', `rounded-xl border p-4 ${boxClass}`);
+    box.appendChild(node('div', `text-xs font-bold uppercase tracking-wider ${labelClass}`, label));
+    const value = node('div', `text-2xl font-black mt-1 ${valueClass}`, initial);
+    value.id = id;
+    box.appendChild(value);
+    return box;
+  }
+
   function ensureSummary() {
     const tab = document.getElementById('tab-erros');
     const table = document.getElementById('tabelaErros');
@@ -70,22 +87,13 @@
 
     let summary = document.getElementById('omnixml-failure-summary-v2');
     if (!summary) {
-      summary = document.createElement('div');
+      summary = node('div', 'grid grid-cols-1 md:grid-cols-3 gap-4 mb-5');
       summary.id = 'omnixml-failure-summary-v2';
-      summary.className = 'grid grid-cols-1 md:grid-cols-3 gap-4 mb-5';
-      summary.innerHTML = `
-        <div class="rounded-xl border border-rose-200 bg-rose-50 p-4">
-          <div class="text-xs font-bold uppercase tracking-wider text-rose-500">XMLs com falha</div>
-          <div id="failure-v2-count" class="text-2xl font-black text-rose-700 mt-1">0</div>
-        </div>
-        <div class="rounded-xl border border-amber-200 bg-amber-50 p-4">
-          <div class="text-xs font-bold uppercase tracking-wider text-amber-600">Valor total envolvido</div>
-          <div id="failure-v2-value" class="text-2xl font-black text-amber-700 mt-1">R$ 0,00</div>
-        </div>
-        <div class="rounded-xl border border-blue-200 bg-blue-50 p-4">
-          <div class="text-xs font-bold uppercase tracking-wider text-blue-600">Chaves identificadas</div>
-          <div id="failure-v2-keys" class="text-2xl font-black text-blue-700 mt-1">0</div>
-        </div>`;
+      summary.append(
+        summaryCard('XMLs com falha', 'failure-v2-count', 'border-rose-200 bg-rose-50', 'text-rose-500', 'text-rose-700', '0'),
+        summaryCard('Valor total envolvido', 'failure-v2-value', 'border-amber-200 bg-amber-50', 'text-amber-600', 'text-amber-700', 'R$ 0,00'),
+        summaryCard('Chaves identificadas', 'failure-v2-keys', 'border-blue-200 bg-blue-50', 'text-blue-600', 'text-blue-700', '0')
+      );
       table.parentElement.insertBefore(summary, table.parentElement.firstChild);
     }
     return summary;
@@ -116,6 +124,17 @@
     if (top) top.textContent = String(unique.size);
   }
 
+  function rebuildHeader(table) {
+    table.replaceChildren();
+    const thead = node('thead', 'bg-slate-50');
+    const row = node('tr');
+    for (const label of ['Arquivo', 'Nº Cupom/Nota', 'Chave de Acesso', 'Valor (R$)', 'Motivo']) {
+      row.appendChild(node('th', '', label));
+    }
+    thead.appendChild(row);
+    table.append(thead, node('tbody'));
+  }
+
   function rebuildTable() {
     if (typeof $ === 'undefined' || typeof $.fn?.DataTable === 'undefined') return false;
     const table = document.getElementById('tabelaErros');
@@ -127,17 +146,7 @@
     try { dtErros.destroy(); } catch (_) {}
 
     table.dataset.failureV2 = '1';
-    table.innerHTML = `
-      <thead class="bg-slate-50">
-        <tr>
-          <th>Arquivo</th>
-          <th>Nº Cupom/Nota</th>
-          <th>Chave de Acesso</th>
-          <th>Valor (R$)</th>
-          <th>Motivo</th>
-        </tr>
-      </thead>
-      <tbody></tbody>`;
+    rebuildHeader(table);
 
     dtErros = $('#tabelaErros').DataTable({
       language: { url: 'https://cdn.datatables.net/plug-ins/1.13.6/i18n/pt-BR.json' },
@@ -153,22 +162,32 @@
           data: 'arquivo',
           width: '16%',
           className: 'font-mono font-semibold text-slate-700',
-          render: (d, type, row) => type === 'display' ? escapeHtml(basename(row?.arquivo || row?.caminho || d || '')) : basename(row?.arquivo || row?.caminho || d || '')
+          render: (d, type, row) => {
+            const value = basename(row?.arquivo || row?.caminho || d || '');
+            return type === 'display' ? escapeHtml(value) : value;
+          }
         },
         {
           data: null,
           width: '9%',
           className: 'font-mono font-bold text-slate-800 whitespace-nowrap',
-          render: (d, type, row) => escapeHtml(metaFor(row).numero || '—')
+          render: (d, type, row) => {
+            const value = metaFor(row).numero || '—';
+            return type === 'display' ? escapeHtml(value) : value;
+          }
         },
         {
           data: null,
           width: '34%',
-          className: 'font-mono text-xs text-slate-600',
+          className: 'font-mono text-xs text-slate-600 break-all',
           render: (d, type, row) => {
+            const value = metaFor(row).chave || 'Não identificada';
+            return type === 'display' ? escapeHtml(value) : value;
+          },
+          createdCell: (cell, d, row) => {
             const chave = metaFor(row).chave || '';
-            if (!chave) return '<span class="text-slate-400 italic">Não identificada</span>';
-            return `<span class="break-all" title="${escapeHtml(chave)}">${escapeHtml(chave)}</span>`;
+            cell.title = chave;
+            if (!chave) cell.classList.add('text-slate-400', 'italic');
           }
         },
         {
@@ -182,7 +201,11 @@
           width: '29%',
           render: (reason, type) => {
             if (type !== 'display') return String(reason || '');
-            return `<span class="inline-block max-w-full truncate px-2 py-1 rounded bg-rose-50 text-rose-700 border border-rose-200 font-medium text-xs cursor-help" title="${escapeHtml(reason || '')}">⚠️ ${escapeHtml(shortReason(reason))}</span>`;
+            return escapeHtml(`⚠️ ${shortReason(reason)}`);
+          },
+          createdCell: (cell, reason) => {
+            cell.title = String(reason || '');
+            cell.classList.add('truncate', 'px-2', 'py-1', 'rounded', 'bg-rose-50', 'text-rose-700', 'border', 'border-rose-200', 'font-medium', 'text-xs', 'cursor-help');
           }
         }
       ],
