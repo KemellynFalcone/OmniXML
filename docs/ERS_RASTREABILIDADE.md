@@ -70,15 +70,15 @@
 | ID | Prioridade | Status | Implementação / evidência |
 |---|---|---|---|
 | RNF-001 | P0 | IMPLEMENTADO | arquitetura browser-local; sem upload fiscal |
-| RNF-002 | P0 | PARCIAL | `browser_security_v2.js` escapa dados antes da renderização; auditoria de sinks continua |
+| RNF-002 | P0 | PARCIAL | `browser_security_v2.js` escapa dados; `browser_security_v3.js` bloqueia nós/atributos e navegações perigosas adicionados dinamicamente; remoção dos sinks legados na origem continua |
 | RNF-003 | P0 | IMPLEMENTADO | headers em `web_app_browser.py`; `test_security_headers.py` |
-| RNF-004 | P0 | PARCIAL | CSP ativa; `unsafe-inline` ainda é débito técnico |
+| RNF-004 | P0 | PARCIAL | CSP ativa e ampliada; política estrita sem `unsafe-inline` em `Report-Only`; migração dos scripts inline ainda pendente |
 | RNF-005 | P1 | IMPLEMENTADO | falha individual vira registro e lote continua |
 | RNF-006 | P1 | PARCIAL | yield periódico; Web Workers ainda planejados |
 | RNF-007 | P0 | IMPLEMENTADO | limites: 50.000 arquivos, 20 MB/arquivo, 1,5 GB total em `browser_security_v2.js` |
 | RNF-008 | P2 | IMPLEMENTADO | seleção de pasta baseada em `webkitdirectory` |
 | RNF-009 | P0 | IMPLEMENTADO | testes de regressão no repositório |
-| RNF-010 | P0 | IMPLEMENTADO | GitHub Actions em PR para `main` |
+| RNF-010 | P0 | IMPLEMENTADO | GitHub Actions em PR para `main`; ruleset da `main` exige PR/check |
 | RNF-011 | P0 | IMPLEMENTADO | Dependabot + `pip-audit` no CI |
 | RNF-012 | P1 | IMPLEMENTADO | `/health` sem conteúdo fiscal |
 | RNF-013 | P0 | IMPLEMENTADO | backend sem persistência de XML no fluxo atual |
@@ -94,7 +94,7 @@
 | RI-004 | P1 | IMPLEMENTADO | barra/status durante processamento |
 | RI-005 | P0 | IMPLEMENTADO | modal informa processamento local e não envio |
 
-## Controles de segurança — Fase 2
+## Controles de segurança — Fase 2 e Fase 3
 
 | Controle | Status | Evidência |
 |---|---|---|
@@ -104,8 +104,14 @@
 | Limite agregado de seleção | IMPLEMENTADO | limite 1,5 GB |
 | Auditoria de dependências Python | IMPLEMENTADO | `pip-audit -r requirements-prod.txt` no CI |
 | Atualizações automatizadas | IMPLEMENTADO | `.github/dependabot.yml` |
-| CSP sem `unsafe-inline` | PLANEJADO | exige migração de scripts/styles inline do dashboard |
+| Proteção da `main` por PR e status check | IMPLEMENTADO | GitHub ruleset `Protect main` |
+| Bloqueio defensivo de tags dinâmicas perigosas (`script`, `iframe`, `object`, `embed`) | IMPLEMENTADO | `browser_security_v3.js`, `test_security_phase3.py` |
+| Bloqueio de handlers/eventos e `srcdoc` não confiáveis em nós dinâmicos | IMPLEMENTADO | `browser_security_v3.js` |
+| Bloqueio de esquemas `javascript:`/`vbscript:`/HTML em data URL | IMPLEMENTADO | `browser_security_v3.js` |
+| Validação de chave e destino antes de abrir portal SEFAZ | IMPLEMENTADO | wrapper de `copiarEAbrir` em `browser_security_v3.js` |
+| CSP mais restritiva sem `unsafe-inline` | PARCIAL | `Content-Security-Policy-Report-Only`; migração do código inline pendente |
 | Dependências JS locais/SRI | PLANEJADO | inventário de CDN pendente |
+| Remoção dos sinks `innerHTML` na origem | PLANEJADO | próxima etapa da Fase 3 |
 | Web Workers | PLANEJADO | performance/isolamento para lotes grandes |
 | Testes end-to-end em navegador com payload XSS | PLANEJADO | complementar aos testes estáticos atuais |
 

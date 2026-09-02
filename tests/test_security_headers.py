@@ -14,10 +14,19 @@ def test_home_aplica_cabecalhos_de_seguranca():
     assert "default-src 'self'" in csp
     assert "object-src 'none'" in csp
     assert "frame-ancestors 'none'" in csp
+    assert "frame-src 'none'" in csp
+    assert "media-src 'none'" in csp
     assert "base-uri 'self'" in csp
 
+    report_only = response.headers['Content-Security-Policy-Report-Only']
+    assert "script-src 'self'" in report_only
+    assert "script-src 'self' 'unsafe-inline'" not in report_only
 
-def test_health_publica_hardening_v1():
+
+def test_health_publica_hardening_phase3():
     response = web_app_browser.app.test_client().get('/health')
-    assert response.get_json()['security_headers'] == 'hardening-v1'
+    health = response.get_json()
+    assert health['security_headers'] == 'hardening-v1-csp-phase3'
+    assert health['browser_security'].endswith('-v3')
+    assert health['csp_migration'] == 'strict-script-policy-report-only'
     assert response.headers['X-Content-Type-Options'] == 'nosniff'
