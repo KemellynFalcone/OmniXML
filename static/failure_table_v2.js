@@ -78,13 +78,10 @@
   }
 
   function ensureSummary() {
-    const tab = document.getElementById('tab-erros');
     const table = document.getElementById('tabelaErros');
-    if (!tab || !table) return null;
-
+    if (!table) return null;
     document.getElementById('omnixml-falhas-financeiras')?.remove();
     document.getElementById('omnixml-total-arquivos-falha')?.remove();
-
     let summary = document.getElementById('omnixml-failure-summary-v2');
     if (!summary) {
       summary = node('div', 'grid grid-cols-1 md:grid-cols-3 gap-4 mb-5');
@@ -107,8 +104,7 @@
       const key = String(row?.caminho || row?.arquivo || '').toLowerCase();
       if (key && !unique.has(key)) unique.set(key, row);
     }
-    let total = 0;
-    let keys = 0;
+    let total = 0, keys = 0;
     for (const row of unique.values()) {
       const meta = metaFor(row);
       total += Number(meta.valor || 0);
@@ -128,9 +124,7 @@
     table.replaceChildren();
     const thead = node('thead', 'bg-slate-50');
     const row = node('tr');
-    for (const label of ['Arquivo', 'Nº Cupom/Nota', 'Chave de Acesso', 'Valor (R$)', 'Motivo']) {
-      row.appendChild(node('th', '', label));
-    }
+    for (const label of ['Arquivo', 'Nº Cupom/Nota', 'Chave de Acesso', 'Valor (R$)', 'Motivo']) row.appendChild(node('th', '', label));
     thead.appendChild(row);
     table.append(thead, node('tbody'));
   }
@@ -141,15 +135,18 @@
     if (!table || typeof dtErros === 'undefined' || !dtErros) return false;
     if (table.dataset.failureV2 === '1') return true;
 
+    const settings = dtErros.settings?.()[0];
+    if (settings && settings._bInitComplete === false) return false;
+
     let current = [];
     try { current = dtErros.rows().data().toArray(); } catch (_) {}
-    try { dtErros.destroy(); } catch (_) {}
+    try { dtErros.destroy(); } catch (_) { return false; }
 
     table.dataset.failureV2 = '1';
     rebuildHeader(table);
 
     dtErros = $('#tabelaErros').DataTable({
-      language: { url: 'https://cdn.datatables.net/plug-ins/1.13.6/i18n/pt-BR.json' },
+      language: { url: '/static/datatables_ptbr_v10.json' },
       responsive: false,
       autoWidth: false,
       pageLength: 25,
@@ -158,56 +155,11 @@
       buttons: [{ extend: 'excelHtml5', text: 'Exportar Excel', className: 'dt-button' }],
       data: current,
       columns: [
-        {
-          data: 'arquivo',
-          width: '16%',
-          className: 'font-mono font-semibold text-slate-700',
-          render: (d, type, row) => {
-            const value = basename(row?.arquivo || row?.caminho || d || '');
-            return type === 'display' ? escapeHtml(value) : value;
-          }
-        },
-        {
-          data: null,
-          width: '9%',
-          className: 'font-mono font-bold text-slate-800 whitespace-nowrap',
-          render: (d, type, row) => {
-            const value = metaFor(row).numero || '—';
-            return type === 'display' ? escapeHtml(value) : value;
-          }
-        },
-        {
-          data: null,
-          width: '34%',
-          className: 'font-mono text-xs text-slate-600 break-all',
-          render: (d, type, row) => {
-            const value = metaFor(row).chave || 'Não identificada';
-            return type === 'display' ? escapeHtml(value) : value;
-          },
-          createdCell: (cell, d, row) => {
-            const chave = metaFor(row).chave || '';
-            cell.title = chave;
-            if (!chave) cell.classList.add('text-slate-400', 'italic');
-          }
-        },
-        {
-          data: null,
-          width: '12%',
-          className: 'font-bold text-slate-800 whitespace-nowrap text-right',
-          render: (d, type, row) => type === 'display' ? brl(metaFor(row).valor || 0) : Number(metaFor(row).valor || 0)
-        },
-        {
-          data: 'motivo',
-          width: '29%',
-          render: (reason, type) => {
-            if (type !== 'display') return String(reason || '');
-            return escapeHtml(`⚠️ ${shortReason(reason)}`);
-          },
-          createdCell: (cell, reason) => {
-            cell.title = String(reason || '');
-            cell.classList.add('truncate', 'px-2', 'py-1', 'rounded', 'bg-rose-50', 'text-rose-700', 'border', 'border-rose-200', 'font-medium', 'text-xs', 'cursor-help');
-          }
-        }
+        { data: 'arquivo', width: '16%', className: 'font-mono font-semibold text-slate-700', render: (d, type, row) => { const value = basename(row?.arquivo || row?.caminho || d || ''); return type === 'display' ? escapeHtml(value) : value; } },
+        { data: null, width: '9%', className: 'font-mono font-bold text-slate-800 whitespace-nowrap', render: (d, type, row) => { const value = metaFor(row).numero || '—'; return type === 'display' ? escapeHtml(value) : value; } },
+        { data: null, width: '34%', className: 'font-mono text-xs text-slate-600 break-all', render: (d, type, row) => { const value = metaFor(row).chave || 'Não identificada'; return type === 'display' ? escapeHtml(value) : value; }, createdCell: (cell, d, row) => { const chave = metaFor(row).chave || ''; cell.title = chave; if (!chave) cell.classList.add('text-slate-400', 'italic'); } },
+        { data: null, width: '12%', className: 'font-bold text-slate-800 whitespace-nowrap text-right', render: (d, type, row) => type === 'display' ? brl(metaFor(row).valor || 0) : Number(metaFor(row).valor || 0) },
+        { data: 'motivo', width: '29%', render: (reason, type) => type !== 'display' ? String(reason || '') : escapeHtml(`⚠️ ${shortReason(reason)}`), createdCell: (cell, reason) => { cell.title = String(reason || ''); cell.classList.add('truncate', 'px-2', 'py-1', 'rounded', 'bg-rose-50', 'text-rose-700', 'border', 'border-rose-200', 'font-medium', 'text-xs', 'cursor-help'); } }
       ],
       order: [[1, 'asc']]
     });
@@ -219,12 +171,29 @@
   }
 
   function start() {
-    let attempts = 0;
-    const timer = setInterval(() => {
-      if (rebuildTable() || ++attempts > 80) clearInterval(timer);
-    }, 250);
+    if (typeof $ === 'undefined' || typeof $.fn?.DataTable === 'undefined') {
+      setTimeout(start, 100);
+      return;
+    }
+    const $table = $('#tabelaErros');
+    if (!$table.length) return;
+
+    let done = false;
+    const rebuildOnce = () => {
+      if (done) return;
+      if (rebuildTable()) done = true;
+      else setTimeout(rebuildOnce, 100);
+    };
+
+    $table.one('init.dt.failureV2Bootstrap', (_event, settings) => {
+      if (settings?.nTable?.id === 'tabelaErros') setTimeout(rebuildOnce, 0);
+    });
+
+    if ($.fn.DataTable.isDataTable('#tabelaErros')) {
+      const settings = dtErros?.settings?.()[0];
+      if (settings?._bInitComplete) setTimeout(rebuildOnce, 0);
+    }
   }
 
-  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', start);
-  else start();
+  start();
 })();
