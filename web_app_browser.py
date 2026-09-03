@@ -61,7 +61,7 @@ def aplicar_cabecalhos_seguranca(response):
 def index():
     html, _ = _separar_runtime_dashboard(render_template('dashboard.html'))
     ponte = (
-        '<script src="/static/browser_security_v2.js?v=1"></script>'
+        '<script src="/static/browser_security_v2.js?v=2"></script>'
         '<script src="/static/browser_security_v3.js?v=1"></script>'
         '<script src="/static/failure_table_v2.js?v=2"></script>'
         '<script src="/static/browser_validation.js?v=1"></script>'
@@ -97,6 +97,7 @@ def health():
         'safe_dom': 'closing-diagnosis-and-failure-table-v4',
         'inline_handlers': 'external-allowlisted-bridge-v5',
         'dashboard_runtime': 'externalized-v6',
+        'runtime_sinks': 'all-primary-datatables-display-escaped-v7',
         'csp_migration': 'strict-script-policy-report-only',
         'csp_enforcement': 'strict-script-policy-enforced-v6',
         'xml_upload': False,
