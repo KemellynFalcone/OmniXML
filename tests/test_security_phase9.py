@@ -37,7 +37,7 @@ def test_css_externo_preserva_estilos_principais():
     assert ".progress-container" in css
 
 
-def test_csp_aplicada_preserva_compatibilidade_e_report_only_testa_estilo_estrito():
+def test_csp_aplicada_evolui_ate_estilo_estrito_total():
     response = web_app_browser.app.test_client().get('/')
     enforced_csp = response.headers['Content-Security-Policy']
     report_csp = response.headers['Content-Security-Policy-Report-Only']
@@ -45,13 +45,11 @@ def test_csp_aplicada_preserva_compatibilidade_e_report_only_testa_estilo_estrit
     report_only = _style_directive(report_csp)
 
     assert "'self'" in enforced
+    assert "'unsafe-inline'" not in enforced
     assert "'unsafe-inline'" not in report_only
     assert "'self'" in report_only
-
-    # A Phase 9 mantinha unsafe-inline no style-src geral. Fases posteriores podem
-    # estreitar a política e isolar compatibilidade apenas em style-src-attr.
-    if "'unsafe-inline'" not in enforced:
-        assert "'unsafe-inline'" in _directive(enforced_csp, 'style-src-attr')
+    assert _directive(enforced_csp, 'style-src-attr') == "style-src-attr 'none'"
+    assert _directive(report_csp, 'style-src-attr') == "style-src-attr 'none'"
 
 
 def test_dependencias_externas_restantes_para_enforcement_total_estao_inventariadas():
