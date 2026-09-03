@@ -35,9 +35,10 @@ def test_security_v3_restringe_navegacao_sefaz():
     assert 'Destino externo não autorizado' in js
 
 
-def test_csp_report_only_mapeia_remocao_de_unsafe_inline():
+def test_csp_report_only_e_enforcement_nao_reabrem_inline():
     response = web_app_browser.app.test_client().get('/')
     enforced = response.headers['Content-Security-Policy']
     report_only = response.headers['Content-Security-Policy-Report-Only']
-    assert "'unsafe-inline'" in enforced
+    assert "script-src 'self' 'unsafe-inline'" not in enforced
     assert "script-src 'self' 'unsafe-inline'" not in report_only
+    assert "style-src-attr 'none'" in enforced
