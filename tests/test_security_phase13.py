@@ -24,17 +24,17 @@ def test_home_cache_busta_browser_local_v13_sem_quebrar_url_historica():
     assert '/static/browser_local_v2.js?v=2&cnpj=1' in html
 
 
-def test_csp_mantem_vendor_compat_enquanto_report_only_testa_none():
+def test_csp_evolui_de_vendor_compat_para_bloqueio_global():
     response = web_app_browser.app.test_client().get('/')
     enforced = response.headers['Content-Security-Policy']
     report_only = response.headers['Content-Security-Policy-Report-Only']
-    assert "style-src-attr 'unsafe-inline'" in enforced
+    assert "style-src-attr 'none'" in enforced
     assert "style-src-attr 'none'" in report_only
 
 
-def test_health_publica_phase13_e_preserva_phase12():
+def test_health_publica_phase13_e_preserva_evolucao_da_csp():
     payload = web_app_browser.app.test_client().get('/health').get_json()
     assert payload['style_attr_app'] == 'class-driven-progress-v13'
-    assert payload['style_csp_enforcement'] == 'strict-elements-compat-attrs-v12'
+    assert payload['style_csp_enforcement'] in {'strict-elements-compat-attrs-v12', 'strict-elements-and-attrs-v18'}
     assert payload['tailwind_assets'] == 'compiled-local-css-v11'
     assert payload['cnpj_support'] == 'alphanumeric-14-rfb-v1'
