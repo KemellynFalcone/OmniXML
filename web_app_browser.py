@@ -154,7 +154,9 @@ def aplicar_cabecalhos_seguranca(response):
         "media-src 'none'; "
         "manifest-src 'self'; "
         "script-src 'self' https://code.jquery.com https://cdn.datatables.net https://cdn.jsdelivr.net; "
-        "style-src 'self' 'unsafe-inline' https://cdn.datatables.net https://cdnjs.cloudflare.com https://fonts.googleapis.com; "
+        "style-src 'self' https://cdn.datatables.net https://cdnjs.cloudflare.com https://fonts.googleapis.com; "
+        "style-src-elem 'self' https://cdn.datatables.net https://cdnjs.cloudflare.com https://fonts.googleapis.com; "
+        "style-src-attr 'unsafe-inline'; "
         "font-src 'self' data: https://cdnjs.cloudflare.com https://fonts.gstatic.com; "
         "img-src 'self' data: blob:; "
         "connect-src 'self'; "
@@ -166,7 +168,9 @@ def aplicar_cabecalhos_seguranca(response):
         "object-src 'none'; "
         "frame-ancestors 'none'; "
         "script-src 'self' https://code.jquery.com https://cdn.datatables.net https://cdn.jsdelivr.net; "
-        "style-src 'self' https://cdn.datatables.net https://cdnjs.cloudflare.com https://fonts.googleapis.com"
+        "style-src 'self' https://cdn.datatables.net https://cdnjs.cloudflare.com https://fonts.googleapis.com; "
+        "style-src-elem 'self' https://cdn.datatables.net https://cdnjs.cloudflare.com https://fonts.googleapis.com; "
+        "style-src-attr 'none'"
     )
     if response.is_json or response.mimetype in {'text/html', 'application/json', 'application/javascript', 'text/css'}:
         response.headers['Cache-Control'] = 'no-store'
@@ -228,6 +232,7 @@ def health():
         'style_csp': 'own-css-external-strict-report-only-v9',
         'external_assets': 'local-datatables-i18n-pinned-chartjs-v10',
         'tailwind_assets': 'compiled-local-css-v11',
+        'style_csp_enforcement': 'strict-elements-compat-attrs-v12',
         'cnpj_support': 'alphanumeric-14-rfb-v1',
         'csp_migration': 'strict-script-policy-report-only',
         'csp_enforcement': 'strict-script-policy-enforced-v6',
