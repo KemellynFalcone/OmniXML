@@ -23,11 +23,11 @@ def test_inventario_phase14_permanece_ativo_para_comparacao_pos_deploy():
     assert "element.tagName === 'CANVAS'" in js
 
 
-def test_csp_ainda_nao_bloqueia_style_attrs_antes_da_medicao_real():
+def test_csp_promovida_para_style_attrs_estritos_apos_medicao_real():
     response = web_app_browser.app.test_client().get('/')
     enforced = response.headers['Content-Security-Policy']
     report_only = response.headers['Content-Security-Policy-Report-Only']
-    assert "style-src-attr 'unsafe-inline'" in enforced
+    assert "style-src-attr 'none'" in enforced
     assert "style-src-attr 'none'" in report_only
 
 
