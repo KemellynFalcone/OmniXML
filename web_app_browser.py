@@ -1,6 +1,7 @@
 import re
+from pathlib import Path
 
-from flask import Flask, Response, jsonify, render_template
+from flask import Flask, Response, jsonify, render_template, request
 
 app = Flask(__name__, template_folder='templates', static_folder='static')
 
@@ -72,6 +73,40 @@ def _separar_runtime_dashboard(html):
     return safe_html, script
 
 
+def _browser_local_com_cnpj_alfanumerico():
+    """Adapta o processador local para comparar CNPJ numérico e alfanumérico como texto normalizado."""
+    source = Path(app.root_path, 'static', 'browser_local_v2.js').read_text(encoding='utf-8')
+    old = "const docId=el=>txt(child(el,'CNPJ'))||txt(child(el,'CPF'))||'';"
+    new = (
+        "const docId=el=>{const cnpj=txt(child(el,'CNPJ'));"
+        "if(cnpj)return window.__omnixmlCnpj?.normalizar(cnpj)||String(cnpj).trim().toUpperCase();"
+        "return txt(child(el,'CPF'))||'';};"
+    )
+    if old not in source:
+        raise RuntimeError('Ponto de normalização de CNPJ do processador local não encontrado.')
+    return source.replace(old, new, 1)
+
+
+def _inutilizacao_com_cnpj_alfanumerico():
+    """Normaliza CNPJ de inutilizações para a mesma chave textual usada nas notas."""
+    source = Path(app.root_path, 'static', 'inutilization_capture.js').read_text(encoding='utf-8')
+    old = "cnpj: valor('CNPJ'),"
+    new = "cnpj: window.__omnixmlCnpj?.normalizar(valor('CNPJ')) || valor('CNPJ'),"
+    if old not in source:
+        raise RuntimeError('Ponto de CNPJ da inutilização não encontrado.')
+    return source.replace(old, new, 1)
+
+
+@app.before_request
+def servir_compatibilidade_cnpj_alfanumerico():
+    """Preserva URLs históricas dos scripts enquanto injeta a compatibilidade alfanumérica."""
+    if request.path == '/static/browser_local_v2.js':
+        return Response(_browser_local_com_cnpj_alfanumerico(), mimetype='application/javascript')
+    if request.path == '/static/inutilization_capture.js':
+        return Response(_inutilizacao_com_cnpj_alfanumerico(), mimetype='application/javascript')
+    return None
+
+
 @app.after_request
 def aplicar_cabecalhos_seguranca(response):
     """Camada de hardening HTTP para a interface pública do OmniXML."""
@@ -118,12 +153,13 @@ def index():
         '<script src="/static/browser_security_v2.js?v=1&phase=7"></script>'
         '<script src="/static/browser_security_v3.js?v=1"></script>'
         '<script src="/static/safe_renderers_v8.js?v=1"></script>'
+        '<script src="/static/cnpj_alfanumerico_v1.js?v=1"></script>'
         '<script src="/static/failure_table_v2.js?v=2"></script>'
         '<script src="/static/browser_validation.js?v=1"></script>'
         '<script src="/static/failure_summary.js?v=1"></script>'
-        '<script src="/static/inutilization_capture.js?v=1"></script>'
+        '<script src="/static/inutilization_capture.js?v=1&cnpj=1"></script>'
         '<script src="/static/closing_diagnosis_v2.js?v=3"></script>'
-        '<script src="/static/browser_local_v2.js?v=2"></script>'
+        '<script src="/static/browser_local_v2.js?v=2&cnpj=1"></script>'
         '<script src="/static/inline_handler_bridge_v5.js?v=1"></script>'
     )
     return Response(html.replace('</body>', f'{ponte}</body>'), mimetype='text/html')
@@ -161,6 +197,7 @@ def health():
         'runtime_sinks': 'all-primary-datatables-display-escaped-v7',
         'safe_renderers': 'escaped-dynamic-markup-and-data-sefaz-v8',
         'style_csp': 'own-css-external-strict-report-only-v9',
+        'cnpj_support': 'alphanumeric-14-rfb-v1',
         'csp_migration': 'strict-script-policy-report-only',
         'csp_enforcement': 'strict-script-policy-enforced-v6',
         'xml_upload': False,
