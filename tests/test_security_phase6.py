@@ -36,10 +36,9 @@ def test_csp_aplicada_remove_unsafe_inline_de_scripts():
     script_src = _script_directive(csp)
     assert script_src.startswith("script-src 'self'")
     assert "'unsafe-inline'" not in script_src
-    # A Phase 6 precisava de compatibilidade de estilos. Fases posteriores podem
-    # restringi-la ao style-src-attr, sem reabrir script-src inline.
     assert "style-src 'self'" in csp
-    assert ("style-src 'self' 'unsafe-inline'" in csp or "style-src-attr 'unsafe-inline'" in csp)
+    # A Phase 18 conclui a migração e também bloqueia atributos de estilo inline.
+    assert "style-src-attr 'none'" in csp
 
 
 def test_bridge_migra_consulta_sefaz_dinamica():
