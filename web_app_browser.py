@@ -61,7 +61,7 @@ def aplicar_cabecalhos_seguranca(response):
 def index():
     html, _ = _separar_runtime_dashboard(render_template('dashboard.html'))
     ponte = (
-        '<script src="/static/browser_security_v2.js?v=2"></script>'
+        '<script src="/static/browser_security_v2.js?v=1&phase=7"></script>'
         '<script src="/static/browser_security_v3.js?v=1"></script>'
         '<script src="/static/failure_table_v2.js?v=2"></script>'
         '<script src="/static/browser_validation.js?v=1"></script>'
