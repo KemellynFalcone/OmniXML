@@ -91,7 +91,7 @@ def _separar_runtime_dashboard(html):
         raise RuntimeError('Runtime inline principal do dashboard não encontrado.')
     match = matches[-1]
     script = _endurecer_runtime_dashboard(match.group('body').strip() + '\n')
-    external = '<script src="/static/dashboard_runtime_v6.js?v=1&phase=10"></script>'
+    external = '<script src="/static/dashboard_runtime_v6.js?v=1&phase=8"></script>'
     safe_html = html[:match.start()] + external + html[match.end():]
     return safe_html, script
 
