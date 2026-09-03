@@ -140,6 +140,11 @@ def _inutilizacao_com_cnpj_alfanumerico():
     return source.replace(old, new, 1)
 
 
+def _probe_style_attr_estrito():
+    """Ativa style-src-attr 'none' somente na home e apenas por opt-in explícito."""
+    return request.path == '/' and request.args.get('style_attr_strict') == '1'
+
+
 @app.before_request
 def servir_compatibilidade_cnpj_alfanumerico():
     """Preserva URLs históricas dos scripts enquanto injeta compatibilidade e hardening."""
@@ -177,6 +182,11 @@ def aplicar_cabecalhos_seguranca(response):
         "connect-src 'self'; "
         "worker-src 'self' blob:"
     )
+    if _probe_style_attr_estrito():
+        response.headers['Content-Security-Policy'] = response.headers['Content-Security-Policy'].replace(
+            "style-src-attr 'unsafe-inline'", "style-src-attr 'none'"
+        )
+        response.headers['X-OmniXML-Style-Attr-Probe'] = 'strict-v17'
     response.headers['Content-Security-Policy-Report-Only'] = (
         "default-src 'self'; "
         "base-uri 'self'; "
@@ -249,6 +259,7 @@ def health():
         'tailwind_assets': 'compiled-local-css-v11',
         'style_csp_enforcement': 'strict-elements-compat-attrs-v12',
         'style_attr_app': 'class-driven-progress-v13',
+        'style_attr_probe': 'opt-in-strict-query-v17',
         'cnpj_support': 'alphanumeric-14-rfb-v1',
         'csp_migration': 'strict-script-policy-report-only',
         'csp_enforcement': 'strict-script-policy-enforced-v6',
