@@ -15,7 +15,8 @@
     'importarPisCofins',
     'confrontarSPED',
     'mostrarDivergencias',
-    'abrirModalProduto'
+    'abrirModalProduto',
+    'copiarEAbrir'
   ]);
 
   const splitArgs = raw => {
