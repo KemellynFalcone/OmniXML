@@ -24,6 +24,9 @@ def test_failure_table_structure_is_built_with_dom_api():
     assert 'createElement' in script
 
 
-def test_health_reports_safe_dom_phase4():
+def test_health_reports_safe_dom_phase4_without_replacing_previous_capabilities():
     response = web_app_browser.app.test_client().get('/health')
-    assert response.get_json()['browser_security'].endswith('safe-dom-v4')
+    payload = response.get_json()
+    assert payload['browser_security'].endswith('-v3')
+    assert payload['closing_diagnosis'] == 'sequence-with-inutilization-reconciliation'
+    assert payload['safe_dom'] == 'closing-diagnosis-and-failure-table-v4'
