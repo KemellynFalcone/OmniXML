@@ -51,4 +51,5 @@ def test_bridge_migra_consulta_sefaz_dinamica():
 def test_health_publica_runtime_e_csp_v6():
     payload = web_app_browser.app.test_client().get('/health').get_json()
     assert payload['dashboard_runtime'] == 'externalized-v6'
-    assert payload['csp_migration'] == 'strict-script-policy-enforced-v6'
+    assert payload['csp_migration'] == 'strict-script-policy-report-only'
+    assert payload['csp_enforcement'] == 'strict-script-policy-enforced-v6'
