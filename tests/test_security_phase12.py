@@ -20,7 +20,7 @@ def test_csp_aplicada_bloqueia_inline_em_elementos_de_estilo():
     assert "'unsafe-inline'" not in style
     assert "'unsafe-inline'" not in elem
     assert "'self'" in elem
-    assert "'unsafe-inline'" in attr
+    assert attr == "style-src-attr 'none'"
 
 
 def test_report_only_experimenta_bloqueio_total_de_style_attr():
@@ -39,7 +39,7 @@ def test_html_entregue_nao_contem_bloco_style_inline():
 
 def test_health_publica_phase12_e_preserva_fases_anteriores():
     payload = web_app_browser.app.test_client().get('/health').get_json()
-    assert payload['style_csp_enforcement'] == 'strict-elements-compat-attrs-v12'
+    assert payload['style_csp_enforcement'] in {'strict-elements-compat-attrs-v12', 'strict-elements-and-attrs-v18'}
     assert payload['tailwind_assets'] == 'compiled-local-css-v11'
     assert payload['external_assets'] == 'local-datatables-i18n-pinned-chartjs-v10'
     assert payload['style_csp'] == 'own-css-external-strict-report-only-v9'
