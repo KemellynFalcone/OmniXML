@@ -55,6 +55,7 @@ def index():
         '<script src="/static/inutilization_capture.js?v=1"></script>'
         '<script src="/static/closing_diagnosis_v2.js?v=3"></script>'
         '<script src="/static/browser_local_v2.js?v=2"></script>'
+        '<script src="/static/inline_handler_bridge_v5.js?v=1"></script>'
     )
     return Response(html.replace('</body>', f'{ponte}</body>'), mimetype='text/html')
 
@@ -74,6 +75,7 @@ def health():
         'security_headers': 'hardening-v1-csp-phase3',
         'browser_security': 'xss-display-escape-limits-dom-navigation-guards-v3',
         'safe_dom': 'closing-diagnosis-and-failure-table-v4',
+        'inline_handlers': 'external-allowlisted-bridge-v5',
         'csp_migration': 'strict-script-policy-report-only',
         'xml_upload': False,
     })
