@@ -34,9 +34,16 @@ _RUNTIME_SAFE_REPLACEMENTS = {
         "<button data-omnixml-sefaz-chave=\"${escapeRuntimeHtml(d)}\" data-omnixml-sefaz-url=\"${escapeRuntimeHtml(urlSefaz)}\" class=\"text-blue-600 hover:text-blue-800 bg-blue-50 hover:bg-blue-100 p-1.5 rounded transition-colors\" title=\"Copiar Chave e Abrir SEFAZ\">",
 }
 
+_RUNTIME_PHASE10_REPLACEMENTS = {
+    "https://cdn.datatables.net/plug-ins/1.13.6/i18n/pt-BR.json": "/static/datatables_ptbr_v10.json",
+}
+
+_CHART_JS_UNPINNED = '<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>'
+_CHART_JS_PINNED = '<script src="https://cdn.jsdelivr.net/npm/chart.js@4.5.1/dist/chart.umd.min.js"></script>'
+
 
 def _endurecer_runtime_dashboard(script):
-    """Neutraliza dados dinâmicos em renderizadores HTML legados antes de servir o runtime."""
+    """Neutraliza dados dinâmicos e elimina chamadas externas evitáveis no runtime."""
     hardened = script
     missing = []
     for vulnerable, safe in _RUNTIME_SAFE_REPLACEMENTS.items():
@@ -46,7 +53,23 @@ def _endurecer_runtime_dashboard(script):
         hardened = hardened.replace(vulnerable, safe)
     if missing:
         raise RuntimeError(f'Renderizadores esperados da Fase 8 não encontrados: {missing}')
+
+    phase10_missing = []
+    for external, local in _RUNTIME_PHASE10_REPLACEMENTS.items():
+        if external not in hardened:
+            phase10_missing.append(external)
+            continue
+        hardened = hardened.replace(external, local)
+    if phase10_missing:
+        raise RuntimeError(f'Dependências esperadas da Fase 10 não encontradas: {phase10_missing}')
     return f'{_RUNTIME_ESCAPE_HELPER}\n\n{hardened}'
+
+
+def _endurecer_ativos_externos(html):
+    """Fixa versões de ativos externos que ainda não podem ser servidos localmente."""
+    if _CHART_JS_UNPINNED not in html:
+        raise RuntimeError('Importação não versionada do Chart.js não encontrada.')
+    return html.replace(_CHART_JS_UNPINNED, _CHART_JS_PINNED, 1)
 
 
 def _separar_estilo_dashboard(html):
@@ -68,7 +91,7 @@ def _separar_runtime_dashboard(html):
         raise RuntimeError('Runtime inline principal do dashboard não encontrado.')
     match = matches[-1]
     script = _endurecer_runtime_dashboard(match.group('body').strip() + '\n')
-    external = '<script src="/static/dashboard_runtime_v6.js?v=1&phase=8"></script>'
+    external = '<script src="/static/dashboard_runtime_v6.js?v=1&phase=10"></script>'
     safe_html = html[:match.start()] + external + html[match.end():]
     return safe_html, script
 
@@ -147,7 +170,8 @@ def aplicar_cabecalhos_seguranca(response):
 
 @app.get('/')
 def index():
-    html, _ = _separar_estilo_dashboard(render_template('dashboard.html'))
+    html = _endurecer_ativos_externos(render_template('dashboard.html'))
+    html, _ = _separar_estilo_dashboard(html)
     html, _ = _separar_runtime_dashboard(html)
     ponte = (
         '<script src="/static/browser_security_v2.js?v=1&phase=7"></script>'
@@ -197,6 +221,7 @@ def health():
         'runtime_sinks': 'all-primary-datatables-display-escaped-v7',
         'safe_renderers': 'escaped-dynamic-markup-and-data-sefaz-v8',
         'style_csp': 'own-css-external-strict-report-only-v9',
+        'external_assets': 'local-datatables-i18n-pinned-chartjs-v10',
         'cnpj_support': 'alphanumeric-14-rfb-v1',
         'csp_migration': 'strict-script-policy-report-only',
         'csp_enforcement': 'strict-script-policy-enforced-v6',
