@@ -73,6 +73,7 @@ def health():
         'inutilization_reconciliation': 'homologated-cstat-102',
         'security_headers': 'hardening-v1-csp-phase3',
         'browser_security': 'xss-display-escape-limits-dom-navigation-guards-v3',
+        'safe_dom': 'closing-diagnosis-and-failure-table-v4',
         'csp_migration': 'strict-script-policy-report-only',
         'xml_upload': False,
     })

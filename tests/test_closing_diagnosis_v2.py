@@ -12,7 +12,8 @@ def test_home_carrega_diagnostico_v3():
 
 def test_diagnostico_fica_recolhido_e_separa_justificado_de_pendente():
     script = Path('static/closing_diagnosis_v2.js').read_text(encoding='utf-8')
-    assert 'id="omnixml-diag-conteudo" class="hidden' in script
+    assert "const conteudo = node('div', 'hidden mt-3" in script
+    assert "conteudo.id = 'omnixml-diag-conteudo'" in script
     assert 'Inutilizadas' in script
     assert 'A conferir' in script
     assert 'inutilizadas' in script
