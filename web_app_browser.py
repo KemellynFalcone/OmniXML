@@ -1,7 +1,7 @@
 import re
 from pathlib import Path
 
-from flask import Flask, Response, jsonify, render_template
+from flask import Flask, Response, jsonify, render_template, request
 
 app = Flask(__name__, template_folder='templates', static_folder='static')
 
@@ -97,6 +97,16 @@ def _inutilizacao_com_cnpj_alfanumerico():
     return source.replace(old, new, 1)
 
 
+@app.before_request
+def servir_compatibilidade_cnpj_alfanumerico():
+    """Preserva URLs históricas dos scripts enquanto injeta a compatibilidade alfanumérica."""
+    if request.path == '/static/browser_local_v2.js':
+        return Response(_browser_local_com_cnpj_alfanumerico(), mimetype='application/javascript')
+    if request.path == '/static/inutilization_capture.js':
+        return Response(_inutilizacao_com_cnpj_alfanumerico(), mimetype='application/javascript')
+    return None
+
+
 @app.after_request
 def aplicar_cabecalhos_seguranca(response):
     """Camada de hardening HTTP para a interface pública do OmniXML."""
@@ -147,9 +157,9 @@ def index():
         '<script src="/static/failure_table_v2.js?v=2"></script>'
         '<script src="/static/browser_validation.js?v=1"></script>'
         '<script src="/static/failure_summary.js?v=1"></script>'
-        '<script src="/static/inutilization_capture_cnpj_v1.js?v=1"></script>'
+        '<script src="/static/inutilization_capture.js?v=1&cnpj=1"></script>'
         '<script src="/static/closing_diagnosis_v2.js?v=3"></script>'
-        '<script src="/static/browser_local_cnpj_v1.js?v=1"></script>'
+        '<script src="/static/browser_local_v2.js?v=2&cnpj=1"></script>'
         '<script src="/static/inline_handler_bridge_v5.js?v=1"></script>'
     )
     return Response(html.replace('</body>', f'{ponte}</body>'), mimetype='text/html')
@@ -165,16 +175,6 @@ def dashboard_runtime_v6():
 def dashboard_style_v9():
     _, css = _separar_estilo_dashboard(render_template('dashboard.html'))
     return Response(css, mimetype='text/css')
-
-
-@app.get('/static/browser_local_cnpj_v1.js')
-def browser_local_cnpj_v1():
-    return Response(_browser_local_com_cnpj_alfanumerico(), mimetype='application/javascript')
-
-
-@app.get('/static/inutilization_capture_cnpj_v1.js')
-def inutilization_capture_cnpj_v1():
-    return Response(_inutilizacao_com_cnpj_alfanumerico(), mimetype='application/javascript')
 
 
 @app.get('/health')
