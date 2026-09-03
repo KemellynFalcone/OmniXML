@@ -16,7 +16,7 @@ def test_security_v2_cobre_tabela_de_erros_e_expoe_clone_seguro():
 
 def test_home_carrega_security_v2_com_cache_bust_v7():
     html = web_app_browser.app.test_client().get('/').get_data(as_text=True)
-    assert '/static/browser_security_v2.js?v=2' in html
+    assert '/static/browser_security_v2.js?v=1&phase=7' in html
 
 
 def test_health_publica_hardening_de_sinks_v7_sem_apagar_fases_anteriores():
