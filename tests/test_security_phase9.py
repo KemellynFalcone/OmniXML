@@ -37,9 +37,10 @@ def test_csp_aplicada_preserva_compatibilidade_e_report_only_testa_estilo_estrit
     assert "'self'" in report_only
 
 
-def test_dependencias_externas_que_bloqueiam_enforcement_total_estao_inventariadas():
+def test_dependencias_externas_restantes_para_enforcement_total_estao_inventariadas():
     html = web_app_browser.app.test_client().get('/').get_data(as_text=True)
-    assert 'https://cdn.tailwindcss.com' in html
+    assert 'https://cdn.tailwindcss.com' not in html
+    assert '/static/tailwind_v11.css?v=1' in html
     assert 'https://cdn.datatables.net' in html
 
 

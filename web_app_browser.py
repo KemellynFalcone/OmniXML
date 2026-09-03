@@ -40,6 +40,8 @@ _RUNTIME_PHASE10_REPLACEMENTS = {
 
 _CHART_JS_UNPINNED = '<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>'
 _CHART_JS_PINNED = '<script src="https://cdn.jsdelivr.net/npm/chart.js@4.5.1/dist/chart.umd.min.js"></script>'
+_TAILWIND_CDN = '<script src="https://cdn.tailwindcss.com"></script>'
+_TAILWIND_LOCAL = '<link rel="stylesheet" href="/static/tailwind_v11.css?v=1">'
 
 
 def _endurecer_runtime_dashboard(script):
@@ -66,10 +68,13 @@ def _endurecer_runtime_dashboard(script):
 
 
 def _endurecer_ativos_externos(html):
-    """Fixa versões de ativos externos que ainda não podem ser servidos localmente."""
+    """Fixa versões e substitui Tailwind CDN pelo CSS compilado local."""
     if _CHART_JS_UNPINNED not in html:
         raise RuntimeError('Importação não versionada do Chart.js não encontrada.')
-    return html.replace(_CHART_JS_UNPINNED, _CHART_JS_PINNED, 1)
+    if _TAILWIND_CDN not in html:
+        raise RuntimeError('Importação do Tailwind CDN não encontrada.')
+    html = html.replace(_CHART_JS_UNPINNED, _CHART_JS_PINNED, 1)
+    return html.replace(_TAILWIND_CDN, _TAILWIND_LOCAL, 1)
 
 
 def _separar_estilo_dashboard(html):
@@ -148,7 +153,7 @@ def aplicar_cabecalhos_seguranca(response):
         "form-action 'self'; "
         "media-src 'none'; "
         "manifest-src 'self'; "
-        "script-src 'self' https://cdn.tailwindcss.com https://code.jquery.com https://cdn.datatables.net https://cdn.jsdelivr.net; "
+        "script-src 'self' https://code.jquery.com https://cdn.datatables.net https://cdn.jsdelivr.net; "
         "style-src 'self' 'unsafe-inline' https://cdn.datatables.net https://cdnjs.cloudflare.com https://fonts.googleapis.com; "
         "font-src 'self' data: https://cdnjs.cloudflare.com https://fonts.gstatic.com; "
         "img-src 'self' data: blob:; "
@@ -160,7 +165,7 @@ def aplicar_cabecalhos_seguranca(response):
         "base-uri 'self'; "
         "object-src 'none'; "
         "frame-ancestors 'none'; "
-        "script-src 'self' https://cdn.tailwindcss.com https://code.jquery.com https://cdn.datatables.net https://cdn.jsdelivr.net; "
+        "script-src 'self' https://code.jquery.com https://cdn.datatables.net https://cdn.jsdelivr.net; "
         "style-src 'self' https://cdn.datatables.net https://cdnjs.cloudflare.com https://fonts.googleapis.com"
     )
     if response.is_json or response.mimetype in {'text/html', 'application/json', 'application/javascript', 'text/css'}:
@@ -222,6 +227,7 @@ def health():
         'safe_renderers': 'escaped-dynamic-markup-and-data-sefaz-v8',
         'style_csp': 'own-css-external-strict-report-only-v9',
         'external_assets': 'local-datatables-i18n-pinned-chartjs-v10',
+        'tailwind_assets': 'compiled-local-css-v11',
         'cnpj_support': 'alphanumeric-14-rfb-v1',
         'csp_migration': 'strict-script-policy-report-only',
         'csp_enforcement': 'strict-script-policy-enforced-v6',
