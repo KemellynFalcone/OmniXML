@@ -5,6 +5,7 @@ from flask import Flask, Response, jsonify, render_template
 app = Flask(__name__, template_folder='templates', static_folder='static')
 
 INLINE_SCRIPT_RE = re.compile(r'<script(?![^>]*\bsrc=)[^>]*>(?P<body>.*?)</script>', re.IGNORECASE | re.DOTALL)
+INLINE_STYLE_RE = re.compile(r'<style[^>]*>(?P<body>.*?)</style>', re.IGNORECASE | re.DOTALL)
 
 _RUNTIME_ESCAPE_HELPER = """
 const escapeRuntimeHtml = value => String(value ?? '').replace(/[&<>\"']/g, char => ({
@@ -45,6 +46,18 @@ def _endurecer_runtime_dashboard(script):
     if missing:
         raise RuntimeError(f'Renderizadores esperados da Fase 8 não encontrados: {missing}')
     return f'{_RUNTIME_ESCAPE_HELPER}\n\n{hardened}'
+
+
+def _separar_estilo_dashboard(html):
+    """Externaliza o CSS próprio do template para preparar CSP de estilos estrita."""
+    matches = list(INLINE_STYLE_RE.finditer(html))
+    if len(matches) != 1:
+        raise RuntimeError(f'Esperado exatamente 1 bloco de estilo próprio; encontrados {len(matches)}.')
+    match = matches[0]
+    css = match.group('body').strip() + '\n'
+    external = '<link rel="stylesheet" href="/static/dashboard_style_v9.css?v=1">'
+    safe_html = html[:match.start()] + external + html[match.end():]
+    return safe_html, css
 
 
 def _separar_runtime_dashboard(html):
@@ -90,16 +103,17 @@ def aplicar_cabecalhos_seguranca(response):
         "object-src 'none'; "
         "frame-ancestors 'none'; "
         "script-src 'self' https://cdn.tailwindcss.com https://code.jquery.com https://cdn.datatables.net https://cdn.jsdelivr.net; "
-        "style-src 'self' 'unsafe-inline' https://cdn.datatables.net https://cdnjs.cloudflare.com https://fonts.googleapis.com"
+        "style-src 'self' https://cdn.datatables.net https://cdnjs.cloudflare.com https://fonts.googleapis.com"
     )
-    if response.is_json or response.mimetype in {'text/html', 'application/json', 'application/javascript'}:
+    if response.is_json or response.mimetype in {'text/html', 'application/json', 'application/javascript', 'text/css'}:
         response.headers['Cache-Control'] = 'no-store'
     return response
 
 
 @app.get('/')
 def index():
-    html, _ = _separar_runtime_dashboard(render_template('dashboard.html'))
+    html, _ = _separar_estilo_dashboard(render_template('dashboard.html'))
+    html, _ = _separar_runtime_dashboard(html)
     ponte = (
         '<script src="/static/browser_security_v2.js?v=1&phase=7"></script>'
         '<script src="/static/browser_security_v3.js?v=1"></script>'
@@ -121,6 +135,12 @@ def dashboard_runtime_v6():
     return Response(script, mimetype='application/javascript')
 
 
+@app.get('/static/dashboard_style_v9.css')
+def dashboard_style_v9():
+    _, css = _separar_estilo_dashboard(render_template('dashboard.html'))
+    return Response(css, mimetype='text/css')
+
+
 @app.get('/health')
 def health():
     return jsonify({
@@ -140,6 +160,7 @@ def health():
         'dashboard_runtime': 'externalized-v6',
         'runtime_sinks': 'all-primary-datatables-display-escaped-v7',
         'safe_renderers': 'escaped-dynamic-markup-and-data-sefaz-v8',
+        'style_csp': 'own-css-external-strict-report-only-v9',
         'csp_migration': 'strict-script-policy-report-only',
         'csp_enforcement': 'strict-script-policy-enforced-v6',
         'xml_upload': False,
