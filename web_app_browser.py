@@ -43,6 +43,11 @@ _CHART_JS_PINNED = '<script src="https://cdn.jsdelivr.net/npm/chart.js@4.5.1/dis
 _TAILWIND_CDN = '<script src="https://cdn.tailwindcss.com"></script>'
 _TAILWIND_LOCAL = '<link rel="stylesheet" href="/static/tailwind_v11.css?v=1">'
 
+_BROWSER_LOCAL_PROGRESS_OLD = "function progresso(a,t){const c=document.getElementById('progressContainer'),b=document.getElementById('progressBar');if(c&&b){c.style.display='block';b.style.width=`${t?Math.min(100,a/t*100):0}%`;}}"
+_BROWSER_LOCAL_PROGRESS_NEW = "function progresso(a,t){const c=document.getElementById('progressContainer'),b=document.getElementById('progressBar');if(c&&b){const p=Math.max(0,Math.min(100,Math.round(t?a/t*100:0)));c.classList.add('progress-visible');for(const x of Array.from(b.classList))if(x.startsWith('progress-pct-'))b.classList.remove(x);b.classList.add(`progress-pct-${p}`);}}"
+_BROWSER_LOCAL_HIDE_OLD = "setTimeout(()=>{const c=document.getElementById('progressContainer');if(c)c.style.display='none';},2500);"
+_BROWSER_LOCAL_HIDE_NEW = "setTimeout(()=>document.getElementById('progressContainer')?.classList.remove('progress-visible'),2500);"
+
 
 def _endurecer_runtime_dashboard(script):
     """Neutraliza dados dinâmicos e elimina chamadas externas evitáveis no runtime."""
@@ -77,13 +82,19 @@ def _endurecer_ativos_externos(html):
     return html.replace(_TAILWIND_CDN, _TAILWIND_LOCAL, 1)
 
 
+def _css_progresso_sem_inline():
+    regras = ['.progress-container.progress-visible { display: block; }']
+    regras.extend(f'.progress-bar.progress-pct-{pct} {{ width: {pct}%; }}' for pct in range(101))
+    return '\n'.join(regras)
+
+
 def _separar_estilo_dashboard(html):
-    """Externaliza o CSS próprio do template para preparar CSP de estilos estrita."""
+    """Externaliza o CSS próprio do template e inclui progresso sem style attributes."""
     matches = list(INLINE_STYLE_RE.finditer(html))
     if len(matches) != 1:
         raise RuntimeError(f'Esperado exatamente 1 bloco de estilo próprio; encontrados {len(matches)}.')
     match = matches[0]
-    css = match.group('body').strip() + '\n'
+    css = match.group('body').strip() + '\n\n' + _css_progresso_sem_inline() + '\n'
     external = '<link rel="stylesheet" href="/static/dashboard_style_v9.css?v=1">'
     safe_html = html[:match.start()] + external + html[match.end():]
     return safe_html, css
@@ -102,7 +113,7 @@ def _separar_runtime_dashboard(html):
 
 
 def _browser_local_com_cnpj_alfanumerico():
-    """Adapta o processador local para comparar CNPJ numérico e alfanumérico como texto normalizado."""
+    """Adapta CNPJ e remove styles inline do progresso do processador local."""
     source = Path(app.root_path, 'static', 'browser_local_v2.js').read_text(encoding='utf-8')
     old = "const docId=el=>txt(child(el,'CNPJ'))||txt(child(el,'CPF'))||'';"
     new = (
@@ -112,7 +123,11 @@ def _browser_local_com_cnpj_alfanumerico():
     )
     if old not in source:
         raise RuntimeError('Ponto de normalização de CNPJ do processador local não encontrado.')
-    return source.replace(old, new, 1)
+    source = source.replace(old, new, 1)
+    if _BROWSER_LOCAL_PROGRESS_OLD not in source or _BROWSER_LOCAL_HIDE_OLD not in source:
+        raise RuntimeError('Pontos de estilo inline do progresso não encontrados.')
+    source = source.replace(_BROWSER_LOCAL_PROGRESS_OLD, _BROWSER_LOCAL_PROGRESS_NEW, 1)
+    return source.replace(_BROWSER_LOCAL_HIDE_OLD, _BROWSER_LOCAL_HIDE_NEW, 1)
 
 
 def _inutilizacao_com_cnpj_alfanumerico():
@@ -127,7 +142,7 @@ def _inutilizacao_com_cnpj_alfanumerico():
 
 @app.before_request
 def servir_compatibilidade_cnpj_alfanumerico():
-    """Preserva URLs históricas dos scripts enquanto injeta a compatibilidade alfanumérica."""
+    """Preserva URLs históricas dos scripts enquanto injeta compatibilidade e hardening."""
     if request.path == '/static/browser_local_v2.js':
         return Response(_browser_local_com_cnpj_alfanumerico(), mimetype='application/javascript')
     if request.path == '/static/inutilization_capture.js':
@@ -192,7 +207,7 @@ def index():
         '<script src="/static/failure_summary.js?v=1"></script>'
         '<script src="/static/inutilization_capture.js?v=1&cnpj=1"></script>'
         '<script src="/static/closing_diagnosis_v2.js?v=3"></script>'
-        '<script src="/static/browser_local_v2.js?v=2&cnpj=1"></script>'
+        '<script src="/static/browser_local_v2.js?v=2&cnpj=1&style=13"></script>'
         '<script src="/static/inline_handler_bridge_v5.js?v=1"></script>'
     )
     return Response(html.replace('</body>', f'{ponte}</body>'), mimetype='text/html')
@@ -233,6 +248,7 @@ def health():
         'external_assets': 'local-datatables-i18n-pinned-chartjs-v10',
         'tailwind_assets': 'compiled-local-css-v11',
         'style_csp_enforcement': 'strict-elements-compat-attrs-v12',
+        'style_attr_app': 'class-driven-progress-v13',
         'cnpj_support': 'alphanumeric-14-rfb-v1',
         'csp_migration': 'strict-script-policy-report-only',
         'csp_enforcement': 'strict-script-policy-enforced-v6',
