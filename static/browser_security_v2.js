@@ -92,20 +92,86 @@
     return tables.length > 0;
   }
 
+  const styleAttrInventory = {
+    dataTables: 0,
+    chartjs: 0,
+    app: 0,
+    other: 0,
+    samples: [],
+  };
+
+  function classifyStyledElement(element) {
+    if (!(element instanceof Element)) return 'other';
+    if (element.tagName === 'CANVAS' || element.closest('canvas')) return 'chartjs';
+    if (element.closest('.dataTables_wrapper') || element.matches('table.dataTable, table.dataTable *')) return 'dataTables';
+    if (element.closest('#progressContainer, #progressBar')) return 'app';
+    return 'other';
+  }
+
+  function recordStyleAttribute(element) {
+    if (!(element instanceof Element) || !element.hasAttribute('style')) return;
+    const bucket = classifyStyledElement(element);
+    styleAttrInventory[bucket] += 1;
+    if (styleAttrInventory.samples.length < 25) {
+      styleAttrInventory.samples.push({
+        bucket,
+        tag: element.tagName.toLowerCase(),
+        id: element.id || '',
+        className: typeof element.className === 'string' ? element.className.slice(0, 120) : '',
+        style: (element.getAttribute('style') || '').slice(0, 160),
+      });
+    }
+  }
+
+  function scanExistingStyleAttributes(root = document) {
+    if (!root || typeof root.querySelectorAll !== 'function') return styleAttrInventory;
+    root.querySelectorAll('[style]').forEach(recordStyleAttribute);
+    return styleAttrInventory;
+  }
+
+  function startStyleAttrInventory() {
+    scanExistingStyleAttributes();
+    const observer = new MutationObserver(mutations => {
+      for (const mutation of mutations) {
+        if (mutation.type === 'attributes' && mutation.attributeName === 'style') {
+          recordStyleAttribute(mutation.target);
+          continue;
+        }
+        for (const node of mutation.addedNodes || []) {
+          if (!(node instanceof Element)) continue;
+          if (node.hasAttribute('style')) recordStyleAttribute(node);
+          node.querySelectorAll?.('[style]').forEach(recordStyleAttribute);
+        }
+      }
+    });
+    observer.observe(document.documentElement, {
+      subtree: true,
+      childList: true,
+      attributes: true,
+      attributeFilter: ['style'],
+    });
+    return observer;
+  }
+
   function start() {
     let attempts = 0;
     const timer = setInterval(() => {
       const ready = patchDataTables();
       if (ready || ++attempts > 80) clearInterval(timer);
     }, 100);
+    startStyleAttrInventory();
   }
 
+  window.__omnixmlStyleAttrInventory = styleAttrInventory;
   window.__omnixmlSecurityV2 = {
     limits: LIMITS,
     escapeHtml,
     cloneForDisplay,
     validateSelection,
     patchDataTables,
+    classifyStyledElement,
+    scanExistingStyleAttributes,
+    styleAttrInventory,
   };
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', start);
