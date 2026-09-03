@@ -11,6 +11,15 @@ def _style_directive(csp):
     return ''
 
 
+def _directive(csp, name):
+    prefix = f'{name} '
+    for directive in csp.split(';'):
+        directive = directive.strip()
+        if directive.startswith(prefix):
+            return directive
+    return ''
+
+
 def test_home_externaliza_css_proprio_do_dashboard():
     response = web_app_browser.app.test_client().get('/')
     html = response.get_data(as_text=True)
@@ -30,11 +39,19 @@ def test_css_externo_preserva_estilos_principais():
 
 def test_csp_aplicada_preserva_compatibilidade_e_report_only_testa_estilo_estrito():
     response = web_app_browser.app.test_client().get('/')
-    enforced = _style_directive(response.headers['Content-Security-Policy'])
-    report_only = _style_directive(response.headers['Content-Security-Policy-Report-Only'])
-    assert "'unsafe-inline'" in enforced
+    enforced_csp = response.headers['Content-Security-Policy']
+    report_csp = response.headers['Content-Security-Policy-Report-Only']
+    enforced = _style_directive(enforced_csp)
+    report_only = _style_directive(report_csp)
+
+    assert "'self'" in enforced
     assert "'unsafe-inline'" not in report_only
     assert "'self'" in report_only
+
+    # A Phase 9 mantinha unsafe-inline no style-src geral. Fases posteriores podem
+    # estreitar a política e isolar compatibilidade apenas em style-src-attr.
+    if "'unsafe-inline'" not in enforced:
+        assert "'unsafe-inline'" in _directive(enforced_csp, 'style-src-attr')
 
 
 def test_dependencias_externas_restantes_para_enforcement_total_estao_inventariadas():
