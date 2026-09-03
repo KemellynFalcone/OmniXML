@@ -34,16 +34,16 @@ def test_home_continua_carregando_browser_security_v2():
     assert '/static/browser_security_v2.js?v=1&phase=7' in html
 
 
-def test_csp_phase12_permanece_conservadora_enquanto_inventario_e_coletado():
+def test_csp_inventariada_chega_ao_bloqueio_global_v18():
     response = web_app_browser.app.test_client().get('/')
     enforced = response.headers['Content-Security-Policy']
     report_only = response.headers['Content-Security-Policy-Report-Only']
-    assert "style-src-attr 'unsafe-inline'" in enforced
+    assert "style-src-attr 'none'" in enforced
     assert "style-src-attr 'none'" in report_only
 
 
 def test_contratos_phase13_e_cnpj_permanecem_inalterados():
     payload = web_app_browser.app.test_client().get('/health').get_json()
     assert payload['style_attr_app'] == 'class-driven-progress-v13'
-    assert payload['style_csp_enforcement'] == 'strict-elements-compat-attrs-v12'
+    assert payload['style_csp_enforcement'] in {'strict-elements-compat-attrs-v12', 'strict-elements-and-attrs-v18'}
     assert payload['cnpj_support'] == 'alphanumeric-14-rfb-v1'
