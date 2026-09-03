@@ -86,6 +86,7 @@
       if (typeof dtProdutos !== 'undefined') tables.push(dtProdutos);
       if (typeof dtDivergencias !== 'undefined') tables.push(dtDivergencias);
       if (typeof dtPisCofins !== 'undefined') tables.push(dtPisCofins);
+      if (typeof dtErros !== 'undefined') tables.push(dtErros);
     } catch (_) {}
     tables.forEach(patchRowsAdd);
     return tables.length > 0;
@@ -102,7 +103,9 @@
   window.__omnixmlSecurityV2 = {
     limits: LIMITS,
     escapeHtml,
+    cloneForDisplay,
     validateSelection,
+    patchDataTables,
   };
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', start);
