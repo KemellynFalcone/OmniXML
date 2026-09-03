@@ -62,6 +62,13 @@
     window.alert(`OmniXML bloqueou esta seleção por segurança.\n\n${failure}`);
   }, true);
 
+  function configureDataTablesStyleBudget() {
+    const dataTable = window.jQuery?.fn?.dataTable;
+    if (!dataTable?.defaults) return false;
+    dataTable.defaults.autoWidth = false;
+    return true;
+  }
+
   function patchRowsAdd(table) {
     if (!table || !table.rows || typeof table.rows.add !== 'function' || table.__omnixmlSafeRowsAdd) return;
     const original = table.rows.add;
@@ -162,12 +169,18 @@
     startStyleAttrInventory();
   }
 
+  // O runtime principal registra as inicializações no jQuery ready. Como este script
+  // roda ainda durante o parsing do documento, o default é ajustado antes da criação
+  // efetiva das tabelas e reduz larguras inline automáticas sem alterar os dados.
+  configureDataTablesStyleBudget();
+
   window.__omnixmlStyleAttrInventory = styleAttrInventory;
   window.__omnixmlSecurityV2 = {
     limits: LIMITS,
     escapeHtml,
     cloneForDisplay,
     validateSelection,
+    configureDataTablesStyleBudget,
     patchDataTables,
     classifyStyledElement,
     scanExistingStyleAttributes,
