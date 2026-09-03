@@ -31,5 +31,5 @@ def test_payloads_adversariais_sao_cobertos_pela_rotina_de_escape():
     js = Path('static/browser_security_v2.js').read_text(encoding='utf-8')
     # Evidência estática de que os caracteres necessários para neutralizar tags,
     # atributos e entidades HTML passam pela mesma função usada na cópia de display.
-    assert 'replace(/[&<>\"\']/g' in js
+    assert "replace(/[&<>\"']/g" in js
     assert "return typeof value === 'string' ? escapeHtml(value) : value;" in js
