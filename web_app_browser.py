@@ -6,6 +6,46 @@ app = Flask(__name__, template_folder='templates', static_folder='static')
 
 INLINE_SCRIPT_RE = re.compile(r'<script(?![^>]*\bsrc=)[^>]*>(?P<body>.*?)</script>', re.IGNORECASE | re.DOTALL)
 
+_RUNTIME_ESCAPE_HELPER = """
+const escapeRuntimeHtml = value => String(value ?? '').replace(/[&<>\"']/g, char => ({
+    '&': '&amp;', '<': '&lt;', '>': '&gt;', '\"': '&quot;', "'": '&#39;'
+}[char]));
+""".strip()
+
+_RUNTIME_SAFE_REPLACEMENTS = {
+    "return '<span class=\"px-2.5 py-1 bg-slate-100 text-slate-700 rounded border border-slate-200 font-semibold text-[11px]\">' + data + '</span>';":
+        "return '<span class=\"px-2.5 py-1 bg-slate-100 text-slate-700 rounded border border-slate-200 font-semibold text-[11px]\">' + escapeRuntimeHtml(data) + '</span>';",
+    "return '<span class=\"inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-red-50 text-red-700 border border-red-200\">❌ ' + d + '</span>';":
+        "return '<span class=\"inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-red-50 text-red-700 border border-red-200\">❌ ' + escapeRuntimeHtml(d) + '</span>';",
+    "return '<span class=\"inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-amber-50 text-amber-700 border border-amber-200\">⚠️ ' + d + '</span>';":
+        "return '<span class=\"inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-amber-50 text-amber-700 border border-amber-200\">⚠️ ' + escapeRuntimeHtml(d) + '</span>';",
+    "{ data: 'ncm', render: function(d){return `<span class=\"font-mono font-semibold\">${d}</span>`;} }":
+        "{ data: 'ncm', render: function(d){return `<span class=\"font-mono font-semibold\">${escapeRuntimeHtml(d)}</span>`;} }",
+    "`<span class=\"px-2 py-0.5 rounded text-xs font-medium bg-orange-50 text-orange-700 border border-orange-200\">⚠️ ${d}</span>`":
+        "`<span class=\"px-2 py-0.5 rounded text-xs font-medium bg-orange-50 text-orange-700 border border-orange-200\">⚠️ ${escapeRuntimeHtml(d)}</span>`",
+    "{ data: 'ncm', render: function(d){return `<span class=\"font-mono text-blue-600 font-bold\">${d}</span>`;} }":
+        "{ data: 'ncm', render: function(d){return `<span class=\"font-mono text-blue-600 font-bold\">${escapeRuntimeHtml(d)}</span>`;} }",
+    "{ data: 'motivo', render: function(d) { return `<span class=\"px-2 py-1 rounded bg-rose-50 text-rose-700 border border-rose-200 font-medium text-xs\">⚠️ ${d}</span>`; } }":
+        "{ data: 'motivo', render: function(d) { return `<span class=\"px-2 py-1 rounded bg-rose-50 text-rose-700 border border-rose-200 font-medium text-xs\">⚠️ ${escapeRuntimeHtml(d)}</span>`; } }",
+    "<span>${chaveFormatada}</span>": "<span>${escapeRuntimeHtml(chaveFormatada)}</span>",
+    "<button onclick=\"copiarEAbrir('${d}', '${urlSefaz}')\" class=\"text-blue-600 hover:text-blue-800 bg-blue-50 hover:bg-blue-100 p-1.5 rounded transition-colors\" title=\"Copiar Chave e Abrir SEFAZ\">":
+        "<button data-omnixml-sefaz-chave=\"${escapeRuntimeHtml(d)}\" data-omnixml-sefaz-url=\"${escapeRuntimeHtml(urlSefaz)}\" class=\"text-blue-600 hover:text-blue-800 bg-blue-50 hover:bg-blue-100 p-1.5 rounded transition-colors\" title=\"Copiar Chave e Abrir SEFAZ\">",
+}
+
+
+def _endurecer_runtime_dashboard(script):
+    """Neutraliza dados dinâmicos em renderizadores HTML legados antes de servir o runtime."""
+    hardened = script
+    missing = []
+    for vulnerable, safe in _RUNTIME_SAFE_REPLACEMENTS.items():
+        if vulnerable not in hardened:
+            missing.append(vulnerable[:80])
+            continue
+        hardened = hardened.replace(vulnerable, safe)
+    if missing:
+        raise RuntimeError(f'Renderizadores esperados da Fase 8 não encontrados: {missing}')
+    return f'{_RUNTIME_ESCAPE_HELPER}\n\n{hardened}'
+
 
 def _separar_runtime_dashboard(html):
     """Remove o último bloco JS inline do dashboard e devolve HTML + runtime externo."""
@@ -13,8 +53,8 @@ def _separar_runtime_dashboard(html):
     if not matches:
         raise RuntimeError('Runtime inline principal do dashboard não encontrado.')
     match = matches[-1]
-    script = match.group('body').strip() + '\n'
-    external = '<script src="/static/dashboard_runtime_v6.js?v=1"></script>'
+    script = _endurecer_runtime_dashboard(match.group('body').strip() + '\n')
+    external = '<script src="/static/dashboard_runtime_v6.js?v=1&phase=8"></script>'
     safe_html = html[:match.start()] + external + html[match.end():]
     return safe_html, script
 
@@ -63,6 +103,7 @@ def index():
     ponte = (
         '<script src="/static/browser_security_v2.js?v=1&phase=7"></script>'
         '<script src="/static/browser_security_v3.js?v=1"></script>'
+        '<script src="/static/safe_renderers_v8.js?v=1"></script>'
         '<script src="/static/failure_table_v2.js?v=2"></script>'
         '<script src="/static/browser_validation.js?v=1"></script>'
         '<script src="/static/failure_summary.js?v=1"></script>'
@@ -98,6 +139,7 @@ def health():
         'inline_handlers': 'external-allowlisted-bridge-v5',
         'dashboard_runtime': 'externalized-v6',
         'runtime_sinks': 'all-primary-datatables-display-escaped-v7',
+        'safe_renderers': 'escaped-dynamic-markup-and-data-sefaz-v8',
         'csp_migration': 'strict-script-policy-report-only',
         'csp_enforcement': 'strict-script-policy-enforced-v6',
         'xml_upload': False,
