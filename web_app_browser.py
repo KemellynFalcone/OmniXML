@@ -199,7 +199,7 @@ def aplicar_cabecalhos_seguranca(response):
         "style-src-elem 'self' https://cdn.datatables.net https://cdnjs.cloudflare.com https://fonts.googleapis.com; "
         "style-src-attr 'none'"
     )
-    if response.is_json or response.mimetype in {'text/html', 'application/json', 'application/javascript', 'text/css'}:
+    if response.is_json or response.mimetype in {'text/html', 'application/json', 'application/javascript', 'text/javascript', 'text/css'}:
         response.headers['Cache-Control'] = 'no-store'
     return response
 
