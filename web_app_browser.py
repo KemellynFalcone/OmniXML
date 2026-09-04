@@ -42,6 +42,10 @@ _CHART_JS_UNPINNED = '<script src="https://cdn.jsdelivr.net/npm/chart.js"></scri
 _CHART_JS_PINNED = '<script src="https://cdn.jsdelivr.net/npm/chart.js@4.5.1/dist/chart.umd.min.js"></script>'
 _TAILWIND_CDN = '<script src="https://cdn.tailwindcss.com"></script>'
 _TAILWIND_LOCAL = '<link rel="stylesheet" href="/static/tailwind_v11.css?v=1">'
+_JQUERY_CDN_OLD = '<script src="https://code.jquery.com/jquery-3.7.0.min.js"></script>'
+_JQUERY_CDN_PINNED = '<script src="https://cdn.jsdelivr.net/npm/jquery@3.7.0/dist/jquery.min.js"></script>'
+_JSZIP_CDN_OLD = '<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>'
+_JSZIP_CDN_PINNED = '<script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>'
 
 _BROWSER_LOCAL_PROGRESS_OLD = "function progresso(a,t){const c=document.getElementById('progressContainer'),b=document.getElementById('progressBar');if(c&&b){c.style.display='block';b.style.width=`${t?Math.min(100,a/t*100):0}%`;}}"
 _BROWSER_LOCAL_PROGRESS_NEW = "function progresso(a,t){const c=document.getElementById('progressContainer'),b=document.getElementById('progressBar');if(c&&b){const p=Math.max(0,Math.min(100,Math.round(t?a/t*100:0)));c.classList.add('progress-visible');for(const x of Array.from(b.classList))if(x.startsWith('progress-pct-'))b.classList.remove(x);b.classList.add(`progress-pct-${p}`);}}"
@@ -73,13 +77,21 @@ def _endurecer_runtime_dashboard(script):
 
 
 def _endurecer_ativos_externos(html):
-    """Fixa versões e substitui Tailwind CDN pelo CSS compilado local."""
-    if _CHART_JS_UNPINNED not in html:
-        raise RuntimeError('Importação não versionada do Chart.js não encontrada.')
-    if _TAILWIND_CDN not in html:
-        raise RuntimeError('Importação do Tailwind CDN não encontrada.')
+    """Fixa versões, consolida hosts de scripts e substitui Tailwind pelo CSS local."""
+    obrigatorios = (
+        (_CHART_JS_UNPINNED, 'Importação não versionada do Chart.js não encontrada.'),
+        (_TAILWIND_CDN, 'Importação do Tailwind CDN não encontrada.'),
+        (_JQUERY_CDN_OLD, 'Importação histórica do jQuery 3.7.0 não encontrada.'),
+        (_JSZIP_CDN_OLD, 'Importação histórica do JSZip 3.10.1 não encontrada.'),
+    )
+    for marcador, erro in obrigatorios:
+        if marcador not in html:
+            raise RuntimeError(erro)
+
     html = html.replace(_CHART_JS_UNPINNED, _CHART_JS_PINNED, 1)
-    return html.replace(_TAILWIND_CDN, _TAILWIND_LOCAL, 1)
+    html = html.replace(_TAILWIND_CDN, _TAILWIND_LOCAL, 1)
+    html = html.replace(_JQUERY_CDN_OLD, _JQUERY_CDN_PINNED, 1)
+    return html.replace(_JSZIP_CDN_OLD, _JSZIP_CDN_PINNED, 1)
 
 
 def _css_progresso_sem_inline():
@@ -168,7 +180,7 @@ def aplicar_cabecalhos_seguranca(response):
         "form-action 'self'; "
         "media-src 'none'; "
         "manifest-src 'self'; "
-        "script-src 'self' https://code.jquery.com https://cdn.datatables.net https://cdn.jsdelivr.net; "
+        "script-src 'self' https://cdn.datatables.net https://cdn.jsdelivr.net; "
         "style-src 'self' https://cdn.datatables.net https://cdnjs.cloudflare.com https://fonts.googleapis.com; "
         "style-src-elem 'self' https://cdn.datatables.net https://cdnjs.cloudflare.com https://fonts.googleapis.com; "
         "style-src-attr 'none'; "
@@ -182,7 +194,7 @@ def aplicar_cabecalhos_seguranca(response):
         "base-uri 'self'; "
         "object-src 'none'; "
         "frame-ancestors 'none'; "
-        "script-src 'self' https://code.jquery.com https://cdn.datatables.net https://cdn.jsdelivr.net; "
+        "script-src 'self' https://cdn.datatables.net https://cdn.jsdelivr.net; "
         "style-src 'self' https://cdn.datatables.net https://cdnjs.cloudflare.com https://fonts.googleapis.com; "
         "style-src-elem 'self' https://cdn.datatables.net https://cdnjs.cloudflare.com https://fonts.googleapis.com; "
         "style-src-attr 'none'"
@@ -250,6 +262,7 @@ def health():
         'style_csp_enforcement': 'strict-elements-and-attrs-v18',
         'style_attr_app': 'class-driven-progress-v13',
         'style_attr_probe': 'validated-and-retired-v18',
+        'script_assets': 'jquery-jszip-jsdelivr-pinned-v19',
         'cnpj_support': 'alphanumeric-14-rfb-v1',
         'csp_migration': 'strict-script-policy-report-only',
         'csp_enforcement': 'strict-script-policy-enforced-v6',
