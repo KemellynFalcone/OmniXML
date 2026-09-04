@@ -32,7 +32,10 @@ def test_csp_nao_permite_mais_script_do_tailwind_cdn():
     report_only = response.headers['Content-Security-Policy-Report-Only']
     assert 'cdn.tailwindcss.com' not in enforced
     assert 'cdn.tailwindcss.com' not in report_only
-    assert "script-src 'self' https://code.jquery.com https://cdn.datatables.net https://cdn.jsdelivr.net" in enforced
+    assert "script-src 'self'" in enforced
+    assert 'https://cdn.datatables.net' in enforced
+    assert 'https://cdn.jsdelivr.net' in enforced
+    assert 'https://code.jquery.com' not in enforced
 
 
 def test_health_publica_phase11_sem_quebrar_contratos_anteriores():
