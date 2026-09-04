@@ -6,33 +6,12 @@ on:
   pull_request:
     branches: [main]
 
-permissions:
-  contents: write
-
 jobs:
   test:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-        with:
-          ref: ${{ github.event_name == 'pull_request' && github.head_ref || github.ref }}
-      - name: Vendor Phase20 assets
-        if: github.event_name == 'pull_request' && github.head_ref == 'security-phase20-local-jquery-jszip'
-        run: |
-          set -euo pipefail
-          mkdir -p static/vendor
-          if [ ! -f static/vendor/jquery-3.7.0.min.js ] || [ ! -f static/vendor/jszip-3.10.1.min.js ]; then
-            curl -fsSL https://raw.githubusercontent.com/jquery/jquery/3.7.0/dist/jquery.min.js -o static/vendor/jquery-3.7.0.min.js
-            curl -fsSL https://raw.githubusercontent.com/Stuk/jszip/v3.10.1/dist/jszip.min.js -o static/vendor/jszip-3.10.1.min.js
-            test "$(git hash-object static/vendor/jquery-3.7.0.min.js)" = "e7e29d5b2a3d258d389ee074ba04353e68f8ffbc"
-            test "$(git hash-object static/vendor/jszip-3.10.1.min.js)" = "ff4cfd5e8fdc49176c2d1d409afa897f40be01f4"
-            git config user.name "github-actions[bot]"
-            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-            git add static/vendor/jquery-3.7.0.min.js static/vendor/jszip-3.10.1.min.js
-            git commit -m "vendor: adiciona jQuery 3.7.0 e JSZip 3.10.1"
-            git push origin HEAD:${{ github.head_ref }}
-          fi
       - name: Python
         uses: actions/setup-python@v5
         with:
