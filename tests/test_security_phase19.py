@@ -1,10 +1,18 @@
 import web_app_browser
 
 
-def test_home_consolida_jquery_e_jszip_no_jsdelivr():
+def test_home_mantem_jquery_e_jszip_fora_dos_hosts_historicos():
     html = web_app_browser.app.test_client().get('/').get_data(as_text=True)
-    assert 'https://cdn.jsdelivr.net/npm/jquery@3.7.0/dist/jquery.min.js' in html
-    assert 'https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js' in html
+    jquery_known = (
+        'https://cdn.jsdelivr.net/npm/jquery@3.7.0/dist/jquery.min.js' in html
+        or '/static/vendor/jquery-3.7.0.min.js?v=20' in html
+    )
+    jszip_known = (
+        'https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js' in html
+        or '/static/vendor/jszip-3.10.1.min.js?v=20' in html
+    )
+    assert jquery_known
+    assert jszip_known
     assert 'https://code.jquery.com/jquery-3.7.0.min.js' not in html
     assert 'https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js' not in html
 
@@ -27,9 +35,12 @@ def test_script_src_remove_host_jquery_historico():
     assert "style-src-attr 'none'" in enforced
 
 
-def test_health_publica_phase19_sem_apagar_contratos_anteriores():
+def test_health_publica_phase19_ou_evolucao_sem_apagar_contratos_anteriores():
     payload = web_app_browser.app.test_client().get('/health').get_json()
-    assert payload['script_assets'] == 'jquery-jszip-jsdelivr-pinned-v19'
+    assert payload['script_assets'] in {
+        'jquery-jszip-jsdelivr-pinned-v19',
+        'local-jquery-jszip-pinned-chartjs-v20',
+    }
     assert payload['style_csp_enforcement'] == 'strict-elements-and-attrs-v18'
     assert payload['processing'] == 'browser-local'
     assert payload['xml_upload'] is False
