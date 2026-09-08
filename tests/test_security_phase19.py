@@ -19,7 +19,7 @@ def test_home_mantem_jquery_e_jszip_fora_dos_hosts_historicos():
 
 def test_chartjs_e_datatables_permanecem_versionados():
     html = web_app_browser.app.test_client().get('/').get_data(as_text=True)
-    assert 'https://cdn.jsdelivr.net/npm/chart.js@4.5.1/dist/chart.umd.min.js' in html
+    assert '/static/vendor/chart-4.5.1.umd.min.js?v=21' in html
     assert 'https://cdn.datatables.net/1.13.6/js/jquery.dataTables.min.js' in html
     assert 'https://cdn.datatables.net/buttons/2.4.1/js/dataTables.buttons.min.js' in html
 
@@ -30,7 +30,7 @@ def test_script_src_remove_host_jquery_historico():
     report_only = response.headers['Content-Security-Policy-Report-Only']
     assert 'https://code.jquery.com' not in enforced
     assert 'https://code.jquery.com' not in report_only
-    assert 'https://cdn.jsdelivr.net' in enforced
+    assert 'https://cdn.jsdelivr.net' not in enforced
     assert 'https://cdn.datatables.net' in enforced
     assert "style-src-attr 'none'" in enforced
 
@@ -40,6 +40,7 @@ def test_health_publica_phase19_ou_evolucao_sem_apagar_contratos_anteriores():
     assert payload['script_assets'] in {
         'jquery-jszip-jsdelivr-pinned-v19',
         'local-jquery-jszip-pinned-chartjs-v20',
+        'local-jquery-jszip-chartjs-v21',
     }
     assert payload['style_csp_enforcement'] == 'strict-elements-and-attrs-v18'
     assert payload['processing'] == 'browser-local'

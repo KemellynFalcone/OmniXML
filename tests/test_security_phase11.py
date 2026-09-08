@@ -34,7 +34,7 @@ def test_csp_nao_permite_mais_script_do_tailwind_cdn():
     assert 'cdn.tailwindcss.com' not in report_only
     assert "script-src 'self'" in enforced
     assert 'https://cdn.datatables.net' in enforced
-    assert 'https://cdn.jsdelivr.net' in enforced
+    assert 'https://cdn.jsdelivr.net' not in enforced
     assert 'https://code.jquery.com' not in enforced
 
 

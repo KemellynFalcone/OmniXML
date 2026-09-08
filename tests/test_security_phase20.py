@@ -35,15 +35,17 @@ def test_csp_mantem_apenas_hosts_externos_ainda_necessarios_para_scripts():
     response = web_app_browser.app.test_client().get('/')
     enforced = response.headers['Content-Security-Policy']
     report_only = response.headers['Content-Security-Policy-Report-Only']
-    expected = "script-src 'self' https://cdn.datatables.net https://cdn.jsdelivr.net"
+    expected = "script-src 'self' https://cdn.datatables.net"
     assert expected in enforced
     assert expected in report_only
     assert 'https://code.jquery.com' not in enforced
+    assert 'https://cdn.jsdelivr.net' not in enforced
+    assert 'https://cdn.jsdelivr.net' not in report_only
 
 
 def test_health_publica_phase20_e_preserva_contratos_criticos():
     payload = web_app_browser.app.test_client().get('/health').get_json()
-    assert payload['script_assets'] == 'local-jquery-jszip-pinned-chartjs-v20'
+    assert payload['script_assets'].startswith('local-jquery-jszip')
     assert payload['style_csp_enforcement'] == 'strict-elements-and-attrs-v18'
     assert payload['cnpj_support'] == 'alphanumeric-14-rfb-v1'
     assert payload['processing'] == 'browser-local'

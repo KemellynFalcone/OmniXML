@@ -39,7 +39,7 @@ _RUNTIME_PHASE10_REPLACEMENTS = {
 }
 
 _CHART_JS_UNPINNED = '<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>'
-_CHART_JS_PINNED = '<script src="https://cdn.jsdelivr.net/npm/chart.js@4.5.1/dist/chart.umd.min.js"></script>'
+_CHART_JS_LOCAL = '<script src="/static/vendor/chart-4.5.1.umd.min.js?v=21"></script>'
 _TAILWIND_CDN = '<script src="https://cdn.tailwindcss.com"></script>'
 _TAILWIND_LOCAL = '<link rel="stylesheet" href="/static/tailwind_v11.css?v=1">'
 _JQUERY_CDN_OLD = '<script src="https://code.jquery.com/jquery-3.7.0.min.js"></script>'
@@ -77,7 +77,7 @@ def _endurecer_runtime_dashboard(script):
 
 
 def _endurecer_ativos_externos(html):
-    """Fixa Chart.js, localiza jQuery/JSZip e substitui Tailwind pelo CSS local."""
+    """Localiza Chart.js/jQuery/JSZip e substitui Tailwind pelo CSS local."""
     obrigatorios = (
         (_CHART_JS_UNPINNED, 'Importação não versionada do Chart.js não encontrada.'),
         (_TAILWIND_CDN, 'Importação do Tailwind CDN não encontrada.'),
@@ -88,7 +88,7 @@ def _endurecer_ativos_externos(html):
         if marcador not in html:
             raise RuntimeError(erro)
 
-    html = html.replace(_CHART_JS_UNPINNED, _CHART_JS_PINNED, 1)
+    html = html.replace(_CHART_JS_UNPINNED, _CHART_JS_LOCAL, 1)
     html = html.replace(_TAILWIND_CDN, _TAILWIND_LOCAL, 1)
     html = html.replace(_JQUERY_CDN_OLD, _JQUERY_LOCAL, 1)
     return html.replace(_JSZIP_CDN_OLD, _JSZIP_LOCAL, 1)
@@ -180,7 +180,7 @@ def aplicar_cabecalhos_seguranca(response):
         "form-action 'self'; "
         "media-src 'none'; "
         "manifest-src 'self'; "
-        "script-src 'self' https://cdn.datatables.net https://cdn.jsdelivr.net; "
+        "script-src 'self' https://cdn.datatables.net; "
         "style-src 'self' https://cdn.datatables.net https://cdnjs.cloudflare.com https://fonts.googleapis.com; "
         "style-src-elem 'self' https://cdn.datatables.net https://cdnjs.cloudflare.com https://fonts.googleapis.com; "
         "style-src-attr 'none'; "
@@ -194,7 +194,7 @@ def aplicar_cabecalhos_seguranca(response):
         "base-uri 'self'; "
         "object-src 'none'; "
         "frame-ancestors 'none'; "
-        "script-src 'self' https://cdn.datatables.net https://cdn.jsdelivr.net; "
+        "script-src 'self' https://cdn.datatables.net; "
         "style-src 'self' https://cdn.datatables.net https://cdnjs.cloudflare.com https://fonts.googleapis.com; "
         "style-src-elem 'self' https://cdn.datatables.net https://cdnjs.cloudflare.com https://fonts.googleapis.com; "
         "style-src-attr 'none'"
@@ -262,7 +262,7 @@ def health():
         'style_csp_enforcement': 'strict-elements-and-attrs-v18',
         'style_attr_app': 'class-driven-progress-v13',
         'style_attr_probe': 'validated-and-retired-v18',
-        'script_assets': 'local-jquery-jszip-pinned-chartjs-v20',
+        'script_assets': 'local-jquery-jszip-chartjs-v21',
         'cnpj_support': 'alphanumeric-14-rfb-v1',
         'csp_migration': 'strict-script-policy-report-only',
         'csp_enforcement': 'strict-script-policy-enforced-v6',
