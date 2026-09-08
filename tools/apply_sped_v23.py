@@ -5,7 +5,8 @@ html = path.read_text(encoding='utf-8')
 
 marker = 'sped-empty-v23'
 if marker in html:
-    raise SystemExit('UX SPED v23 já materializada')
+    print('UX SPED v23 já materializada')
+    raise SystemExit(0)
 
 old_button = '<button onclick="confrontarSPED()" class="bg-blue-50 hover:bg-blue-100 text-blue-700 font-semibold py-2 px-4 rounded-lg transition-all shadow-sm border border-blue-200 flex items-center gap-2 text-sm">'
 new_button = '<button onclick="confrontarSPED()" class="sped-import-cta bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-5 rounded-lg transition-all shadow-md flex items-center gap-2 text-sm">'
