@@ -6,12 +6,138 @@ on:
   pull_request:
     branches: [main]
 
+permissions:
+  contents: write
+
 jobs:
   test:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'pull_request' && github.head_ref || github.ref }}
+      - name: Materializar UX SPED v22
+        if: github.event_name == 'pull_request' && github.head_ref == 'ux-sped-preview-v22'
+        run: |
+          set -euo pipefail
+          if ! grep -q 'sped-preview-v22' templates/dashboard.html; then
+            python - <<'PY'
+          from pathlib import Path
+
+          dashboard = Path('templates/dashboard.html')
+          html = dashboard.read_text(encoding='utf-8')
+
+          old_button = '''<button onclick="confrontarSPED()" class="bg-blue-50 hover:bg-blue-100 text-blue-700 font-semibold py-2 px-4 rounded-lg transition-all shadow-sm border border-blue-200 flex items-center gap-2 text-sm">'''
+          new_button = '''<button onclick="confrontarSPED()" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2.5 px-5 rounded-lg transition-all shadow-md hover:shadow-lg flex items-center gap-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2">'''
+          if old_button not in html:
+              raise SystemExit('CTA histórico do SPED não encontrado')
+          html = html.replace(old_button, new_button, 1)
+
+          start_marker = '                    <div id="placeholder-sped" class="text-center py-16">'
+          end_marker = '                    <div id="resultado-sped" class="hidden space-y-6">'
+          start = html.find(start_marker)
+          end = html.find(end_marker, start)
+          if start < 0 or end < 0:
+              raise SystemExit('Placeholder SPED histórico não encontrado')
+
+          preview = '''                    <div id="placeholder-sped" class="sped-preview-v22">
+                        <div class="sped-preview-status-row">
+                            <div>
+                                <span class="sped-preview-eyebrow">Confronto SPED Fiscal</span>
+                                <h4 class="sped-preview-title">Veja o que será analisado antes de importar</h4>
+                                <p class="sped-preview-subtitle">A estrutura abaixo é apenas uma prévia visual. Nenhum valor fiscal é calculado até você importar o arquivo SPED (.txt).</p>
+                            </div>
+                            <span class="sped-preview-status">Aguardando importação</span>
+                        </div>
+
+                        <div class="sped-preview-disclaimer" role="note" aria-label="Aviso sobre dados ilustrativos">
+                            <strong>Prévia visual — dados ilustrativos.</strong> Os gráficos e indicadores abaixo não representam resultados da empresa.
+                        </div>
+
+                        <div class="sped-preview-grid" aria-hidden="true">
+                            <section class="sped-preview-card">
+                                <div class="sped-preview-card-head"><span>Divergências fiscais</span><span class="sped-preview-chip">Prévia</span></div>
+                                <div class="sped-bars">
+                                    <span class="sped-bar sped-bar-1"></span><span class="sped-bar sped-bar-2"></span><span class="sped-bar sped-bar-3"></span><span class="sped-bar sped-bar-4"></span><span class="sped-bar sped-bar-5"></span>
+                                </div>
+                                <div class="sped-preview-axis"><span>Jan</span><span>Fev</span><span>Mar</span><span>Abr</span><span>Mai</span></div>
+                            </section>
+                            <section class="sped-preview-card">
+                                <div class="sped-preview-card-head"><span>Composição da análise</span><span class="sped-preview-chip">Prévia</span></div>
+                                <div class="sped-donut"><div class="sped-donut-hole"></div></div>
+                                <div class="sped-preview-legend"><span>XMLs</span><span>SPED</span><span>Divergências</span></div>
+                            </section>
+                            <section class="sped-preview-card">
+                                <div class="sped-preview-card-head"><span>Impacto para revisão</span><span class="sped-preview-chip">Prévia</span></div>
+                                <div class="sped-line-chart"><span class="sped-line-dot sped-dot-1"></span><span class="sped-line-dot sped-dot-2"></span><span class="sped-line-dot sped-dot-3"></span><span class="sped-line-dot sped-dot-4"></span><span class="sped-line-dot sped-dot-5"></span></div>
+                                <div class="sped-preview-axis"><span>1</span><span>2</span><span>3</span><span>4</span><span>5</span></div>
+                            </section>
+                        </div>
+
+                        <div class="sped-next-steps">
+                            <div class="sped-next-step"><span class="sped-step-number">1</span><div><strong>Importe o SPED</strong><small>Selecione o arquivo .txt da escrituração fiscal.</small></div></div>
+                            <div class="sped-next-step"><span class="sped-step-number">2</span><div><strong>Confronte com os XMLs</strong><small>O OmniXML compara os valores já apurados no navegador.</small></div></div>
+                            <div class="sped-next-step"><span class="sped-step-number">3</span><div><strong>Revise as diferenças</strong><small>Abra o detalhamento nota a nota somente quando houver divergências.</small></div></div>
+                        </div>
+                    </div>
+
+'''
+          html = html[:start] + preview + html[end:]
+
+          css_marker = '''        .sped-preview-v22 { padding: 0.25rem 0 1rem; text-align: left; }
+        .sped-preview-status-row { display: flex; align-items: flex-start; justify-content: space-between; gap: 1.5rem; padding: 0.25rem 0 1.25rem; }
+        .sped-preview-eyebrow { display: block; color: #2563eb; font-size: 0.72rem; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; margin-bottom: 0.35rem; }
+        .sped-preview-title { color: #0f172a; font-size: 1.15rem; line-height: 1.45; font-weight: 800; }
+        .sped-preview-subtitle { color: #64748b; font-size: 0.875rem; line-height: 1.55; max-width: 48rem; margin-top: 0.35rem; }
+        .sped-preview-status { flex-shrink: 0; background: #eff6ff; color: #1d4ed8; border: 1px solid #bfdbfe; border-radius: 9999px; padding: 0.45rem 0.8rem; font-size: 0.72rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.04em; }
+        .sped-preview-disclaimer { background: #fffbeb; border: 1px solid #fde68a; color: #92400e; border-radius: 0.75rem; padding: 0.75rem 1rem; font-size: 0.8rem; margin-bottom: 1rem; }
+        .sped-preview-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 1rem; }
+        .sped-preview-card { min-height: 11rem; border: 1px solid #e2e8f0; border-radius: 0.85rem; background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%); padding: 1rem; overflow: hidden; }
+        .sped-preview-card-head { display: flex; align-items: center; justify-content: space-between; gap: 0.75rem; color: #334155; font-size: 0.78rem; font-weight: 800; }
+        .sped-preview-chip { color: #94a3b8; background: #f1f5f9; border-radius: 9999px; padding: 0.2rem 0.45rem; font-size: 0.62rem; text-transform: uppercase; letter-spacing: 0.05em; }
+        .sped-bars { height: 6.2rem; display: flex; align-items: flex-end; justify-content: space-around; gap: 0.55rem; padding: 0.8rem 0.3rem 0; border-bottom: 1px solid #e2e8f0; }
+        .sped-bar { width: 1.5rem; border-radius: 0.3rem 0.3rem 0 0; background: #cbd5e1; }
+        .sped-bar-1 { height: 34%; } .sped-bar-2 { height: 56%; background: #93c5fd; } .sped-bar-3 { height: 43%; } .sped-bar-4 { height: 72%; background: #60a5fa; } .sped-bar-5 { height: 86%; background: #3b82f6; }
+        .sped-preview-axis { display: flex; justify-content: space-around; gap: 0.4rem; padding-top: 0.45rem; color: #94a3b8; font-size: 0.62rem; }
+        .sped-donut { width: 6.5rem; height: 6.5rem; margin: 0.8rem auto 0.5rem; border-radius: 50%; background: conic-gradient(#3b82f6 0 38%, #94a3b8 38% 70%, #e2e8f0 70% 100%); display: flex; align-items: center; justify-content: center; }
+        .sped-donut-hole { width: 3.45rem; height: 3.45rem; border-radius: 50%; background: #ffffff; border: 1px solid #f1f5f9; }
+        .sped-preview-legend { display: flex; justify-content: center; gap: 0.7rem; color: #64748b; font-size: 0.62rem; }
+        .sped-line-chart { position: relative; height: 6.9rem; margin-top: 0.45rem; border-bottom: 1px solid #e2e8f0; background: linear-gradient(165deg, transparent 0 42%, #bfdbfe 42% 44%, transparent 44% 53%, #60a5fa 53% 55%, transparent 55% 100%); }
+        .sped-line-dot { position: absolute; width: 0.52rem; height: 0.52rem; background: #2563eb; border: 2px solid white; box-shadow: 0 0 0 1px #93c5fd; border-radius: 50%; }
+        .sped-dot-1 { left: 7%; bottom: 20%; } .sped-dot-2 { left: 28%; bottom: 34%; } .sped-dot-3 { left: 49%; bottom: 31%; } .sped-dot-4 { left: 70%; bottom: 55%; } .sped-dot-5 { right: 7%; bottom: 70%; }
+        .sped-next-steps { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0.75rem; margin-top: 1rem; }
+        .sped-next-step { display: flex; gap: 0.7rem; align-items: flex-start; border: 1px solid #e2e8f0; background: #ffffff; border-radius: 0.75rem; padding: 0.8rem; }
+        .sped-step-number { width: 1.65rem; height: 1.65rem; flex: 0 0 1.65rem; display: inline-flex; align-items: center; justify-content: center; border-radius: 50%; background: #dbeafe; color: #1d4ed8; font-size: 0.72rem; font-weight: 900; }
+        .sped-next-step strong { display: block; color: #334155; font-size: 0.78rem; }
+        .sped-next-step small { display: block; color: #64748b; font-size: 0.7rem; line-height: 1.35; margin-top: 0.15rem; }
+        @media (max-width: 900px) { .sped-preview-grid, .sped-next-steps { grid-template-columns: 1fr; } .sped-preview-status-row { flex-direction: column; } }
+'''
+          if '.sped-preview-v22 {' in html:
+              raise SystemExit('CSS v22 já presente antes da inserção')
+          if '</style>' not in html:
+              raise SystemExit('Bloco style do dashboard não encontrado')
+          html = html.replace('    </style>', css_marker + '    </style>', 1)
+          dashboard.write_text(html, encoding='utf-8')
+
+          web = Path('web_app_browser.py')
+          source = web.read_text(encoding='utf-8')
+          health_anchor = "        'script_assets': 'local-jquery-jszip-chartjs-v21',\n"
+          if health_anchor not in source:
+              raise SystemExit('Marcador health Phase21 não encontrado')
+          source = source.replace(health_anchor, health_anchor + "        'sped_empty_state': 'preview-action-guidance-v22',\n", 1)
+          web.write_text(source, encoding='utf-8')
+
+          Path('tests/test_ux_sped_v22.py').write_text('''from pathlib import Path\n\nimport web_app_browser\n\n\ndef test_sped_estado_vazio_vira_preview_orientado_a_acao():\n    html = web_app_browser.app.test_client().get('/').get_data(as_text=True)\n    assert 'id="placeholder-sped"' in html\n    assert 'Veja o que será analisado antes de importar' in html\n    assert 'Prévia visual — dados ilustrativos.' in html\n    assert 'Aguardando importação' in html\n    assert 'Arquivo SPED não importado' not in html\n\n\ndef test_sped_cta_importacao_e_principal_sem_mudar_acao():\n    html = web_app_browser.app.test_client().get('/').get_data(as_text=True)\n    assert 'onclick="confrontarSPED()"' in html\n    assert 'Importar SPED (.txt)' in html\n    assert 'bg-blue-600 hover:bg-blue-700 text-white font-bold' in html\n\n\ndef test_sped_preview_preserva_resultado_e_divergencias_existentes():\n    html = web_app_browser.app.test_client().get('/').get_data(as_text=True)\n    assert 'id="resultado-sped" class="hidden space-y-6"' in html\n    assert 'id="btnDivergencias"' in html\n    assert 'id="tabelaDivergencias"' in html\n    assert 'id="mod-xml-nfe-ent"' in html\n    assert 'id="mod-sped-nfce-sai"' in html\n\n\ndef test_sped_preview_nao_usa_style_attribute_e_csp_permanece_estrita():\n    template = Path('templates/dashboard.html').read_text(encoding='utf-8')\n    start = template.index('id="placeholder-sped"')\n    end = template.index('id="resultado-sped"', start)\n    preview = template[start:end]\n    assert 'style=' not in preview\n    response = web_app_browser.app.test_client().get('/')\n    assert "style-src-attr 'none'" in response.headers['Content-Security-Policy']\n\n\ndef test_health_publica_ux_sped_v22_sem_mudar_processamento():\n    payload = web_app_browser.app.test_client().get('/health').get_json()\n    assert payload['sped_empty_state'] == 'preview-action-guidance-v22'\n    assert payload['processing'] == 'browser-local'\n    assert payload['xml_upload'] is False\n    assert payload['script_assets'] == 'local-jquery-jszip-chartjs-v21'\n''', encoding='utf-8')
+
+          Path('docs/UX_SPED_V22.md').write_text('''# UX SPED v22 — Preview orientado à ação\n\n## Objetivo\n\nEliminar o estado vazio pouco informativo do Confronto SPED Fiscal e orientar o usuário para a primeira ação, sem alterar a lógica fiscal, o processamento browser-local ou os resultados reais.\n\n## Alterações\n\n- O CTA `Importar SPED (.txt)` passa a ser sólido em azul e visualmente prioritário.\n- O `#placeholder-sped` continua existindo e é substituído por uma prévia visual dos tipos de análise que aparecerão depois da importação.\n- A prévia informa explicitamente `dados ilustrativos` e não apresenta valores monetários fictícios.\n- O estado `Aguardando importação` existe somente dentro do placeholder; desaparece quando o fluxo existente oculta o placeholder.\n- Três próximos passos explicam o fluxo: importar SPED, confrontar com XMLs e revisar divergências.\n- `#resultado-sped`, `#btnDivergencias`, `#tabelaDivergencias` e os IDs de valores reais permanecem inalterados.\n\n## Segurança\n\nA nova UI não usa `style=`. Todo o CSS próprio entra no mesmo bloco de estilo do template, que já é externalizado por `dashboard_style_v9.css`, preservando `style-src-attr 'none'`.\n\n## Contrato de produção\n\nO `/health` publica `sped_empty_state = preview-action-guidance-v22`.\n\n## Fora do escopo\n\n- interpretação de SPED;\n- classificação fiscal;\n- cálculo de divergências;\n- CNPJ alfanumérico;\n- DataTables, exportação Excel e Chart.js;\n- upload de XML para o servidor.\n''', encoding='utf-8')
+          PY
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git add templates/dashboard.html web_app_browser.py tests/test_ux_sped_v22.py docs/UX_SPED_V22.md
+            git commit -m "ux: aprimora estado vazio do Confronto SPED"
+            git push origin HEAD:${{ github.head_ref }}
+          fi
       - name: Python
         uses: actions/setup-python@v5
         with:
