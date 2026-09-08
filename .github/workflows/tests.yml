@@ -6,91 +6,12 @@ on:
   pull_request:
     branches: [main]
 
-permissions:
-  contents: write
-
 jobs:
   test:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-        with:
-          ref: ${{ github.event_name == 'pull_request' && github.head_ref || github.ref }}
-      - name: Vendor Phase21 Chart.js
-        if: github.event_name == 'pull_request' && github.head_ref == 'security-phase21-local-chartjs'
-        run: |
-          set -euo pipefail
-          if [ ! -f static/vendor/chart-4.5.1.umd.min.js ]; then
-            mkdir -p static/vendor
-            curl -fsSL https://cdn.jsdelivr.net/npm/chart.js@4.5.1/dist/chart.umd.min.js -o static/vendor/chart-4.5.1.umd.min.js
-            grep -q 'Chart.js v4.5.1' static/vendor/chart-4.5.1.umd.min.js
-            sha256sum static/vendor/chart-4.5.1.umd.min.js
-            python - <<'PY'
-          from pathlib import Path
-
-          path = Path('web_app_browser.py')
-          source = path.read_text(encoding='utf-8')
-          replacements = {
-              "_CHART_JS_PINNED = '<script src=\"https://cdn.jsdelivr.net/npm/chart.js@4.5.1/dist/chart.umd.min.js\"></script>'":
-                  "_CHART_JS_LOCAL = '<script src=\"/static/vendor/chart-4.5.1.umd.min.js?v=21\"></script>'",
-              '"""Fixa Chart.js, localiza jQuery/JSZip e substitui Tailwind pelo CSS local."""':
-                  '"""Localiza Chart.js/jQuery/JSZip e substitui Tailwind pelo CSS local."""',
-              'html = html.replace(_CHART_JS_UNPINNED, _CHART_JS_PINNED, 1)':
-                  'html = html.replace(_CHART_JS_UNPINNED, _CHART_JS_LOCAL, 1)',
-              "script-src 'self' https://cdn.datatables.net https://cdn.jsdelivr.net;":
-                  "script-src 'self' https://cdn.datatables.net;",
-              "'script_assets': 'local-jquery-jszip-pinned-chartjs-v20',":
-                  "'script_assets': 'local-jquery-jszip-chartjs-v21',",
-          }
-          for old, new in replacements.items():
-              if old not in source:
-                  raise SystemExit(f'Phase21 marker not found: {old[:100]}')
-              source = source.replace(old, new)
-          path.write_text(source, encoding='utf-8')
-
-          phase19 = Path('tests/test_security_phase19.py')
-          t19 = phase19.read_text(encoding='utf-8')
-          t19 = t19.replace(
-              "assert 'https://cdn.jsdelivr.net/npm/chart.js@4.5.1/dist/chart.umd.min.js' in html",
-              "assert '/static/vendor/chart-4.5.1.umd.min.js?v=21' in html",
-          )
-          t19 = t19.replace(
-              "assert 'https://cdn.jsdelivr.net' in enforced",
-              "assert 'https://cdn.jsdelivr.net' not in enforced",
-          )
-          t19 = t19.replace(
-              "        'local-jquery-jszip-pinned-chartjs-v20',\n    }",
-              "        'local-jquery-jszip-pinned-chartjs-v20',\n        'local-jquery-jszip-chartjs-v21',\n    }",
-          )
-          phase19.write_text(t19, encoding='utf-8')
-
-          phase20 = Path('tests/test_security_phase20.py')
-          t20 = phase20.read_text(encoding='utf-8')
-          t20 = t20.replace(
-              "expected = \"script-src 'self' https://cdn.datatables.net https://cdn.jsdelivr.net\"",
-              "expected = \"script-src 'self' https://cdn.datatables.net\"",
-          )
-          t20 = t20.replace(
-              "    assert 'https://code.jquery.com' not in enforced\n",
-              "    assert 'https://code.jquery.com' not in enforced\n    assert 'https://cdn.jsdelivr.net' not in enforced\n    assert 'https://cdn.jsdelivr.net' not in report_only\n",
-          )
-          t20 = t20.replace(
-              "assert payload['script_assets'] == 'local-jquery-jszip-pinned-chartjs-v20'",
-              "assert payload['script_assets'].startswith('local-jquery-jszip')",
-          )
-          phase20.write_text(t20, encoding='utf-8')
-
-          Path('tests/test_security_phase21.py').write_text('''from pathlib import Path\n\nimport web_app_browser\n\n\ndef test_home_carrega_chartjs_local_e_remove_jsdelivr():\n    response = web_app_browser.app.test_client().get('/')\n    html = response.get_data(as_text=True)\n    assert '/static/vendor/chart-4.5.1.umd.min.js?v=21' in html\n    assert 'https://cdn.jsdelivr.net/npm/chart.js' not in html\n\n\ndef test_chartjs_vendor_e_exatamente_451():\n    chart = Path('static/vendor/chart-4.5.1.umd.min.js')\n    assert chart.is_file()\n    assert 'Chart.js v4.5.1' in chart.read_text(encoding='utf-8')[:400]\n\n\ndef test_chartjs_local_e_servido_com_no_store():\n    response = web_app_browser.app.test_client().get('/static/vendor/chart-4.5.1.umd.min.js')\n    assert response.status_code == 200\n    assert response.mimetype == 'text/javascript'\n    assert response.headers['Cache-Control'] == 'no-store'\n\n\ndef test_script_csp_remove_jsdelivr_e_preserva_datatables():\n    response = web_app_browser.app.test_client().get('/')\n    enforced = response.headers['Content-Security-Policy']\n    report_only = response.headers['Content-Security-Policy-Report-Only']\n    assert \"script-src 'self' https://cdn.datatables.net;\" in enforced\n    assert \"script-src 'self' https://cdn.datatables.net;\" in report_only\n    assert 'https://cdn.jsdelivr.net' not in enforced\n    assert 'https://cdn.jsdelivr.net' not in report_only\n\n\ndef test_health_publica_phase21_e_preserva_contratos_criticos():\n    payload = web_app_browser.app.test_client().get('/health').get_json()\n    assert payload['script_assets'] == 'local-jquery-jszip-chartjs-v21'\n    assert payload['style_csp_enforcement'] == 'strict-elements-and-attrs-v18'\n    assert payload['cnpj_support'] == 'alphanumeric-14-rfb-v1'\n    assert payload['processing'] == 'browser-local'\n    assert payload['xml_upload'] is False\n''', encoding='utf-8')
-
-          Path('docs/SECURITY_PHASE21.md').write_text('''# Security Phase 21 — Chart.js local\n\n## Objetivo\n\nEliminar a dependência externa do Chart.js no runtime do dashboard sem alterar gráficos, layout, processamento fiscal ou arquitetura browser-local.\n\n## Mudança\n\n- Chart.js permanece na versão 4.5.1.\n- O build UMD passa a ser servido por `/static/vendor/chart-4.5.1.umd.min.js?v=21`.\n- jQuery 3.7.0 e JSZip 3.10.1 continuam locais conforme a Phase 20.\n- DataTables permanece externo nesta fase.\n- O host `https://cdn.jsdelivr.net` é removido de `script-src` na CSP aplicada e na Report-Only.\n- O contrato `/health` passa a publicar `script_assets = local-jquery-jszip-chartjs-v21`.\n\n## Origem e fixação\n\nO arquivo é materializado a partir do pacote npm `chart.js@4.5.1` via jsDelivr, com URL versionada. O bootstrap valida o cabeçalho `Chart.js v4.5.1` antes de versionar o arquivo no repositório. O asset resultante passa a ser servido exclusivamente pelo próprio OmniXML.\n\n## Não alterado\n\n- regras fiscais e classificação Entrada/Saída;\n- CNPJ alfanumérico;\n- sequência e inutilização;\n- DataTables e exportação Excel;\n- CSP de estilos da Phase 18;\n- processamento XML integralmente no navegador.\n\n## Validação de produção\n\nApós o deploy do `main`, confirmar `/health`, carregar o dashboard com Ctrl+F5, processar XMLs e validar os gráficos. No HTML/CSP não deve existir `cdn.jsdelivr.net` como fonte de scripts.\n''', encoding='utf-8')
-          PY
-            git config user.name "github-actions[bot]"
-            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-            git add static/vendor/chart-4.5.1.umd.min.js web_app_browser.py tests/test_security_phase19.py tests/test_security_phase20.py tests/test_security_phase21.py docs/SECURITY_PHASE21.md
-            git commit -m "security: vendoriza Chart.js 4.5.1 localmente"
-            git push origin HEAD:${{ github.head_ref }}
-          fi
       - name: Python
         uses: actions/setup-python@v5
         with:
