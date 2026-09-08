@@ -42,6 +42,32 @@
         
         .progress-container { width: 100%; background-color: #e2e8f0; border-radius: 9999px; height: 0.5rem; overflow: hidden; margin-top: 0.5rem; display: none; }
         .progress-bar { background-color: #3b82f6; height: 100%; width: 0%; transition: width 0.3s ease; }
+
+        /* UX SPED v23 - estado vazio conservador */
+        .sped-import-cta { white-space: nowrap; }
+        .sped-empty-v23 { width: 100%; padding: 1.25rem 0 0.5rem; text-align: left; }
+        .sped-empty-v23__hero { display: grid; grid-template-columns: minmax(0, 1.6fr) minmax(280px, 0.75fr); gap: 1.25rem; align-items: stretch; }
+        .sped-empty-v23__copy { border: 1px solid #e2e8f0; border-radius: 0.875rem; background: #f8fafc; padding: 1.35rem 1.5rem; min-width: 0; }
+        .sped-empty-v23__status { display: inline-flex; align-items: center; gap: 0.45rem; color: #92400e; background: #fffbeb; border: 1px solid #fde68a; border-radius: 9999px; padding: 0.35rem 0.65rem; font-size: 0.7rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.04em; }
+        .sped-empty-v23__status span { width: 0.45rem; height: 0.45rem; border-radius: 50%; background: #f59e0b; }
+        .sped-empty-v23__copy h4 { margin-top: 0.9rem; color: #0f172a; font-size: 1.2rem; line-height: 1.35; font-weight: 800; }
+        .sped-empty-v23__copy > p { margin-top: 0.45rem; color: #64748b; font-size: 0.875rem; line-height: 1.55; max-width: 48rem; }
+        .sped-empty-v23__copy .sped-empty-v23__note { margin-top: 0.9rem; color: #475569; font-size: 0.76rem; }
+        .sped-empty-v23__preview { border: 1px solid #dbeafe; border-radius: 0.875rem; background: linear-gradient(180deg, #eff6ff 0%, #ffffff 100%); padding: 1rem; min-width: 0; }
+        .sped-empty-v23__preview-head { display: flex; justify-content: space-between; gap: 1rem; color: #1e3a8a; font-size: 0.72rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.04em; }
+        .sped-empty-v23__preview-head span:last-child { color: #64748b; }
+        .sped-empty-v23__bars { height: 7rem; display: flex; align-items: flex-end; justify-content: center; gap: 0.65rem; padding: 1rem 0.5rem 0.65rem; border-bottom: 1px solid #dbeafe; }
+        .sped-empty-v23__bars i { display: block; width: 1.4rem; border-radius: 0.3rem 0.3rem 0 0; background: #93c5fd; }
+        .sped-empty-v23__bars .sped-bar-a { height: 35%; } .sped-empty-v23__bars .sped-bar-b { height: 62%; } .sped-empty-v23__bars .sped-bar-c { height: 48%; } .sped-empty-v23__bars .sped-bar-d { height: 78%; } .sped-empty-v23__bars .sped-bar-e { height: 68%; }
+        .sped-empty-v23__preview-foot { display: flex; justify-content: space-between; gap: 0.5rem; margin-top: 0.55rem; color: #64748b; font-size: 0.65rem; }
+        .sped-empty-v23__steps { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0.75rem; margin-top: 0.9rem; }
+        .sped-empty-v23__steps > div { display: flex; gap: 0.65rem; align-items: flex-start; border: 1px solid #e2e8f0; border-radius: 0.75rem; background: #ffffff; padding: 0.8rem; min-width: 0; }
+        .sped-empty-v23__steps b { display: inline-flex; flex: 0 0 1.55rem; width: 1.55rem; height: 1.55rem; align-items: center; justify-content: center; border-radius: 50%; background: #dbeafe; color: #1d4ed8; font-size: 0.7rem; }
+        .sped-empty-v23__steps span { min-width: 0; }
+        .sped-empty-v23__steps strong { display: block; color: #334155; font-size: 0.78rem; }
+        .sped-empty-v23__steps small { display: block; margin-top: 0.15rem; color: #64748b; font-size: 0.7rem; line-height: 1.35; }
+        @media (max-width: 1050px) { .sped-empty-v23__hero { grid-template-columns: 1fr; } .sped-empty-v23__preview { display: none; } }
+        @media (max-width: 760px) { .sped-empty-v23__steps { grid-template-columns: 1fr; } .sped-empty-v23__copy { padding: 1rem; } }
     </style>
 </head>
 <body class="text-slate-800 flex h-screen overflow-hidden antialiased">
@@ -394,7 +420,7 @@
                             </div>
                         </div>
                         <div class="flex gap-2">
-                            <button onclick="confrontarSPED()" class="bg-blue-50 hover:bg-blue-100 text-blue-700 font-semibold py-2 px-4 rounded-lg transition-all shadow-sm border border-blue-200 flex items-center gap-2 text-sm">
+                            <button onclick="confrontarSPED()" class="sped-import-cta bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-5 rounded-lg transition-all shadow-md flex items-center gap-2 text-sm">
                                 <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" /></svg>
                                 Importar SPED (.txt)
                             </button>
@@ -405,10 +431,27 @@
                         </div>
                     </div>
 
-                    <div id="placeholder-sped" class="text-center py-16">
-                        <svg class="mx-auto h-16 w-16 text-slate-200 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
-                        <h3 class="text-xl font-bold text-slate-700">Arquivo SPED não importado</h3>
-                        <p class="mt-2 text-sm text-slate-500 mb-8 max-w-lg mx-auto">Para fazer a auditoria e comparar se o sistema gerou os valores corretamente, importe o arquivo de texto (.txt) do SPED Fiscal.</p>
+                    <div id="placeholder-sped" class="sped-empty-v23">
+                        <div class="sped-empty-v23__hero">
+                            <div class="sped-empty-v23__copy">
+                                <div class="sped-empty-v23__status"><span></span>Aguardando importação</div>
+                                <h4>Antecipe a análise antes de importar o SPED</h4>
+                                <p>Após a importação, este painel confrontará o SPED Fiscal com os XMLs já apurados pelo OmniXML e destacará diferenças para revisão.</p>
+                                <p class="sped-empty-v23__note"><strong>Prévia visual:</strong> os elementos abaixo são apenas ilustrativos e não representam dados fiscais da empresa.</p>
+                            </div>
+                            <div class="sped-empty-v23__preview" aria-hidden="true">
+                                <div class="sped-empty-v23__preview-head"><span>Visão da análise</span><span>Prévia</span></div>
+                                <div class="sped-empty-v23__bars">
+                                    <i class="sped-bar-a"></i><i class="sped-bar-b"></i><i class="sped-bar-c"></i><i class="sped-bar-d"></i><i class="sped-bar-e"></i>
+                                </div>
+                                <div class="sped-empty-v23__preview-foot"><span>XMLs</span><span>SPED</span><span>Revisão</span></div>
+                            </div>
+                        </div>
+                        <div class="sped-empty-v23__steps">
+                            <div><b>1</b><span><strong>Importe o SPED</strong><small>Selecione o arquivo .txt da escrituração fiscal.</small></span></div>
+                            <div><b>2</b><span><strong>Confronte os dados</strong><small>O OmniXML compara o SPED com os XMLs processados.</small></span></div>
+                            <div><b>3</b><span><strong>Revise divergências</strong><small>Abra o detalhe somente quando houver diferenças.</small></span></div>
+                        </div>
                     </div>
 
                     <div id="resultado-sped" class="hidden space-y-6">
