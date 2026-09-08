@@ -4,9 +4,13 @@ from pathlib import Path
 import web_app_browser
 
 
-def test_home_fixa_versao_do_chartjs():
+def test_home_fixa_versao_do_chartjs_ou_evolucao_local():
     html = web_app_browser.app.test_client().get('/').get_data(as_text=True)
-    assert 'https://cdn.jsdelivr.net/npm/chart.js@4.5.1/dist/chart.umd.min.js' in html
+    chartjs_known = (
+        'https://cdn.jsdelivr.net/npm/chart.js@4.5.1/dist/chart.umd.min.js' in html
+        or '/static/vendor/chart-4.5.1.umd.min.js?v=21' in html
+    )
+    assert chartjs_known
     assert '<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>' not in html
 
 
