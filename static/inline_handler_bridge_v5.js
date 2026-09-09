@@ -132,6 +132,15 @@
     real.classList.toggle('hidden', !hasRealAudit);
   };
 
+  const loadFailureReconciliationV27 = () => {
+    if (document.querySelector('script[data-omnixml-failure-reconciliation-v27]')) return;
+    const script = document.createElement('script');
+    script.src = '/static/failure_reconciliation_v27.js?v=1';
+    script.dataset.omnixmlFailureReconciliationV27 = '1';
+    script.defer = true;
+    document.head.appendChild(script);
+  };
+
   const loadSpedLocalV26 = () => {
     if (document.querySelector('script[data-omnixml-sped-local-v26]')) return;
     const script = document.createElement('script');
@@ -159,6 +168,7 @@
       dashboardObserver.observe(auditSummary, { attributes: true, attributeFilter: ['class'] });
     }
 
+    loadFailureReconciliationV27();
     loadSpedLocalV26();
     window.__omnixmlInlineHandlersMigrated = true;
     window.__omnixmlDashboardStateV25 = { sync: syncDashboardPreviewV25 };
