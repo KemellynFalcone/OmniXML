@@ -60,6 +60,7 @@
       const gross = num(text(first(prod, 'vProd')));
       const discount = num(text(first(prod, 'vDesc')));
       items.push({
+        item: det.getAttribute('nItem') || '',
         cfop: text(first(prod, 'CFOP')),
         receita: Math.max(0, gross - discount),
         cst_pis: pis.cst,
@@ -74,6 +75,8 @@
     notes.set(key, {
       chave: key,
       modelo: model,
+      numero: text(first(ide, 'nNF')),
+      serie: text(first(ide, 'serie')),
       emitente_cnpj: docId(emit),
       destinatario_cnpj: docId(dest),
       arquivo: file?.webkitRelativePath || file?.name || '',
@@ -118,6 +121,7 @@
   function snapshot() {
     const company = identifyCompany();
     const byCst = new Map();
+    const cofinsDetails = [];
     let outputs = 0;
     let retailExcluded = 0;
     let retailRevenue = 0;
@@ -148,12 +152,26 @@
         current.vl_bc_cofins += item.base_cofins;
         current.itens += 1;
         byCst.set(cst, current);
+
+        cofinsDetails.push({
+          chave: note.chave,
+          arquivo: note.arquivo,
+          modelo: note.modelo,
+          numero: note.numero,
+          serie: note.serie,
+          item: item.item,
+          cfop: item.cfop,
+          cst_cofins: item.cst_cofins || '00',
+          receita: item.receita,
+          base_cofins: item.base_cofins,
+          valor_cofins: item.valor_cofins
+        });
       }
     }
 
     const csts = Array.from(byCst.values()).sort((a, b) => b.vl_opr - a.vl_opr || a.cst.localeCompare(b.cst));
     return {
-      version: 31,
+      version: 32,
       empresa_cnpj: company,
       notas_saida: outputs,
       canceladas_identificadas: cancelled.size,
@@ -164,7 +182,8 @@
         pis: csts.reduce((sum, row) => sum + row.vl_pis, 0),
         cofins: csts.reduce((sum, row) => sum + row.vl_cofins, 0)
       },
-      csts
+      csts,
+      cofins_detalhes: cofinsDetails
     };
   }
 
@@ -174,5 +193,5 @@
     return value;
   };
 
-  window.__omnixmlXmlPisCofins = { version: 31, snapshot };
+  window.__omnixmlXmlPisCofins = { version: 32, snapshot };
 })();
