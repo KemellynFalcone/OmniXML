@@ -112,16 +112,39 @@
     };
   }
 
+  function xmlNfeOutputForConfront() {
+    const notes = Array.isArray(xmlNotasGlobais) ? xmlNotasGlobais : [];
+    let total = 0;
+    let varejo = 0;
+    let quantidadeVarejo = 0;
+    for (const nota of notes) {
+      if (!String(nota?.tipo || '').includes('NF-e')) continue;
+      if (String(nota?.tipo || '').includes('NFC-e')) continue;
+      if (String(nota?.operacao || '') !== 'Saída') continue;
+      if (String(nota?.status || '').includes('Cancelado')) continue;
+      const valor = Number(nota?.valor || 0);
+      if (valor <= 0) continue;
+      if (window.__omnixmlRetailOrigin?.isRetail?.(nota?.chave)) {
+        varejo += valor;
+        quantidadeVarejo += 1;
+      } else {
+        total += valor;
+      }
+    }
+    return { total, varejo, quantidadeVarejo };
+  }
+
   function renderComparison(summary) {
+    const xmlNfeSai = xmlNfeOutputForConfront();
     const difEnt = Number(xmlNFeApuradoEnt || 0) - summary.sped_nfe_ent;
-    const difSai = Number(xmlNFeApuradoSai || 0) - summary.sped_nfe_sai;
+    const difSai = Number(xmlNfeSai.total || 0) - summary.sped_nfe_sai;
     const difNfce = Number(xmlNFCeApuradoSai || 0) - summary.sped_nfce_sai;
 
     const values = {
       'mod-xml-nfe-ent': xmlNFeApuradoEnt,
       'mod-sped-nfe-ent': summary.sped_nfe_ent,
       'mod-dif-nfe-ent': difEnt,
-      'mod-xml-nfe-sai': xmlNFeApuradoSai,
+      'mod-xml-nfe-sai': xmlNfeSai.total,
       'mod-sped-nfe-sai': summary.sped_nfe_sai,
       'mod-dif-nfe-sai': difSai,
       'mod-xml-nfce-sai': xmlNFCeApuradoSai,
@@ -148,6 +171,7 @@
     document.getElementById('placeholder-sped')?.classList.add('hidden');
     document.getElementById('resultado-sped')?.classList.remove('hidden');
     document.getElementById('btnDivergencias')?.classList.remove('hidden');
+    return xmlNfeSai;
   }
 
   async function processFiles(fileList) {
@@ -173,8 +197,11 @@
       const unique = uniqueDocs(docs);
       const summary = summarize(unique);
       spedNotasDetalhadas = summary.detalhes;
-      renderComparison(summary);
-      setStatus(`SPED processado localmente: ${files.length} arquivo(s), ${unique.length} documento(s) C100 suportado(s)`, 'emerald');
+      const xmlNfeSai = renderComparison(summary);
+      const retailLabel = xmlNfeSai.quantidadeVarejo
+        ? ` • ${xmlNfeSai.quantidadeVarejo} NF-e 5.929/6.929 tratada(s) como origem varejo`
+        : '';
+      setStatus(`SPED processado localmente: ${files.length} arquivo(s), ${unique.length} documento(s) C100 suportado(s)${retailLabel}`, 'emerald');
       window.__omnixmlSpedLocalLast = {
         files: files.map(file => file.name),
         c100_total: rawC100,
@@ -182,7 +209,10 @@
         totais: {
           nfe_entrada: summary.sped_nfe_ent,
           nfe_saida: summary.sped_nfe_sai,
-          nfce_saida: summary.sped_nfce_sai
+          nfce_saida: summary.sped_nfce_sai,
+          nfe_saida_xml_confrontada: xmlNfeSai.total,
+          nfe_saida_varejo_excluida: xmlNfeSai.varejo,
+          qtd_nfe_varejo_excluida: xmlNfeSai.quantidadeVarejo
         }
       };
     } catch (error) {
@@ -206,9 +236,10 @@
 
     window.confrontarSPED = () => input.click();
     window.__omnixmlSpedLocal = {
-      version: 26,
+      version: 28,
       parseSpedText,
-      summarize
+      summarize,
+      xmlNfeOutputForConfront
     };
   }
 
