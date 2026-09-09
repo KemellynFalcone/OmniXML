@@ -109,13 +109,26 @@
     return company;
   }
 
+  function isRetailOrigin(note) {
+    if (window.__omnixmlRetailOrigin?.isRetail?.(note.chave)) return true;
+    const cfops = (note.itens || []).map(item => String(item.cfop || '').trim()).filter(Boolean);
+    return note.modelo === '55' && cfops.length > 0 && cfops.every(cfop => cfop === '5929' || cfop === '6929');
+  }
+
   function snapshot() {
     const company = identifyCompany();
     const byCst = new Map();
     let outputs = 0;
+    let retailExcluded = 0;
+    let retailRevenue = 0;
 
     for (const note of notes.values()) {
       if (!company || note.emitente_cnpj !== company || cancelled.has(note.chave)) continue;
+      if (isRetailOrigin(note)) {
+        retailExcluded += 1;
+        retailRevenue += note.itens.reduce((sum, item) => sum + Number(item.receita || 0), 0);
+        continue;
+      }
       outputs += 1;
       for (const item of note.itens) {
         const cst = item.cst_pis || '00';
@@ -140,10 +153,12 @@
 
     const csts = Array.from(byCst.values()).sort((a, b) => b.vl_opr - a.vl_opr || a.cst.localeCompare(b.cst));
     return {
-      version: 30,
+      version: 31,
       empresa_cnpj: company,
       notas_saida: outputs,
       canceladas_identificadas: cancelled.size,
+      notas_varejo_excluidas: retailExcluded,
+      receita_varejo_excluida: retailRevenue,
       totais: {
         receita: csts.reduce((sum, row) => sum + row.vl_opr, 0),
         pis: csts.reduce((sum, row) => sum + row.vl_pis, 0),
@@ -159,5 +174,5 @@
     return value;
   };
 
-  window.__omnixmlXmlPisCofins = { version: 30, snapshot };
+  window.__omnixmlXmlPisCofins = { version: 31, snapshot };
 })();
