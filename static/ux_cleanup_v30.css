@@ -1,4 +1,4 @@
-/* UX v30: estados vazios devem orientar a ação, não simular dados que nunca serão alimentados. */
+/* UX v30/v32: estados vazios orientam a ação; confrontos mostram somente dados reais. */
 #dashboard-preview-v24 {
   display: none !important;
 }
@@ -124,6 +124,38 @@
 .pis-confront-v30__table th:first-child,
 .pis-confront-v30__table td:first-child {
   text-align: left;
+}
+
+.pis-confront-v30__table td.diff {
+  color: #dc2626;
+  font-weight: 800;
+}
+
+.pis-confront-v30__diagnostic {
+  margin-top: 1rem;
+  padding-top: 0.9rem;
+  border-top: 1px solid #e2e8f0;
+}
+
+.pis-confront-v30__diagnostic h5 {
+  color: #1e293b;
+  font-size: 0.88rem;
+  font-weight: 800;
+}
+
+.pis-confront-v30__diagnostic > p {
+  color: #64748b;
+  font-size: 0.7rem;
+  line-height: 1.45;
+  margin-top: 0.2rem;
+}
+
+.pis-confront-v30__diagnostic .pis-confront-v30__table th:last-child,
+.pis-confront-v30__diagnostic .pis-confront-v30__table td:last-child {
+  text-align: left;
+  white-space: normal;
+  min-width: 18rem;
+  overflow-wrap: anywhere;
 }
 
 .pis-confront-v30__empty {

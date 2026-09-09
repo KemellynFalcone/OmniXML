@@ -12,7 +12,7 @@ def test_v30_captura_pis_cofins_dos_xmls_localmente():
 
 def test_v30_confronta_documentos_com_c170_c175():
     js = Path('static/sped_contrib_local_v29.js').read_text(encoding='utf-8')
-    assert 'renderConfront(summary)' in js
+    assert 'renderConfront(summary' in js
     assert 'window.__omnixmlXmlPisCofins?.snapshot?.()' in js
     assert "'Receita documental'" in js
     assert "'PIS documental'" in js
