@@ -132,13 +132,29 @@
     real.classList.toggle('hidden', !hasRealAudit);
   };
 
-  const loadSpedLocalV26 = () => {
-    if (document.querySelector('script[data-omnixml-sped-local-v26]')) return;
+  const loadScriptOnce = (selector, src, dataKey) => {
+    if (document.querySelector(selector)) return;
     const script = document.createElement('script');
-    script.src = '/static/sped_local_v26.js?v=1';
-    script.dataset.omnixmlSpedLocalV26 = '1';
+    script.src = src;
+    script.dataset[dataKey] = '1';
     script.defer = true;
     document.head.appendChild(script);
+  };
+
+  const loadFailureReconciliationV27 = () => {
+    loadScriptOnce(
+      'script[data-omnixml-failure-reconciliation-v27]',
+      '/static/failure_reconciliation_v27.js?v=1',
+      'omnixmlFailureReconciliationV27'
+    );
+  };
+
+  const loadSpedLocalV26 = () => {
+    loadScriptOnce(
+      'script[data-omnixml-sped-local-v26]',
+      '/static/sped_local_v26.js?v=1',
+      'omnixmlSpedLocalV26'
+    );
   };
 
   const start = () => {
@@ -159,6 +175,7 @@
       dashboardObserver.observe(auditSummary, { attributes: true, attributeFilter: ['class'] });
     }
 
+    loadFailureReconciliationV27();
     loadSpedLocalV26();
     window.__omnixmlInlineHandlersMigrated = true;
     window.__omnixmlDashboardStateV25 = { sync: syncDashboardPreviewV25 };
