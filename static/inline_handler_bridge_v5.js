@@ -25,31 +25,11 @@
     let quote = '';
     let escaped = false;
     for (const ch of raw) {
-      if (escaped) {
-        current += ch;
-        escaped = false;
-        continue;
-      }
-      if (ch === '\\') {
-        current += ch;
-        escaped = true;
-        continue;
-      }
-      if (quote) {
-        current += ch;
-        if (ch === quote) quote = '';
-        continue;
-      }
-      if (ch === '"' || ch === "'") {
-        quote = ch;
-        current += ch;
-        continue;
-      }
-      if (ch === ',') {
-        args.push(current.trim());
-        current = '';
-        continue;
-      }
+      if (escaped) { current += ch; escaped = false; continue; }
+      if (ch === '\\') { current += ch; escaped = true; continue; }
+      if (quote) { current += ch; if (ch === quote) quote = ''; continue; }
+      if (ch === '"' || ch === "'") { quote = ch; current += ch; continue; }
+      if (ch === ',') { args.push(current.trim()); current = ''; continue; }
       current += ch;
     }
     if (current.trim()) args.push(current.trim());
@@ -141,6 +121,15 @@
     document.head.appendChild(script);
   };
 
+  const loadRetailOriginV28 = () => {
+    if (document.querySelector('script[data-omnixml-retail-origin-v28]')) return;
+    const script = document.createElement('script');
+    script.src = '/static/retail_origin_v28.js?v=1';
+    script.dataset.omnixmlRetailOriginV28 = '1';
+    script.defer = true;
+    document.head.appendChild(script);
+  };
+
   const loadSpedLocalV26 = () => {
     if (document.querySelector('script[data-omnixml-sped-local-v26]')) return;
     const script = document.createElement('script');
@@ -169,6 +158,7 @@
     }
 
     loadFailureReconciliationV27();
+    loadRetailOriginV28();
     loadSpedLocalV26();
     window.__omnixmlInlineHandlersMigrated = true;
     window.__omnixmlDashboardStateV25 = { sync: syncDashboardPreviewV25 };
