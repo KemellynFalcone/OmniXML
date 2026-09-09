@@ -29,6 +29,7 @@ def test_v28_mantem_rastreabilidade_da_exclusao_varejo():
 
 def test_v28_carregado_localmente_sem_relaxar_csp():
     bridge = Path('static/inline_handler_bridge_v5.js').read_text(encoding='utf-8')
-    assert "script.src = '/static/retail_origin_v28.js?v=1'" in bridge
+    assert "'/static/retail_origin_v28.js?v=1'" in bridge
+    assert 'loadRetailOriginV28' in bridge
     app = Path('web_app_browser.py').read_text(encoding='utf-8')
     assert "style-src-attr 'none'" in app
