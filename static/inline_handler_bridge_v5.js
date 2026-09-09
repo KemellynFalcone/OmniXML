@@ -122,6 +122,16 @@
     root.querySelectorAll('[onclick]').forEach(bind);
   };
 
+  const syncDashboardPreviewV25 = () => {
+    const summary = document.getElementById('faixa-resumo-auditoria');
+    const preview = document.getElementById('dashboard-preview-v24');
+    const real = document.getElementById('dashboard-real-v24');
+    if (!summary || !preview || !real) return;
+    const hasRealAudit = !summary.classList.contains('hidden');
+    preview.classList.toggle('hidden', hasRealAudit);
+    real.classList.toggle('hidden', !hasRealAudit);
+  };
+
   const start = () => {
     migrate(document);
     const observer = new MutationObserver(records => {
@@ -132,7 +142,16 @@
       }
     });
     observer.observe(document.documentElement, { childList: true, subtree: true });
+
+    syncDashboardPreviewV25();
+    const auditSummary = document.getElementById('faixa-resumo-auditoria');
+    if (auditSummary) {
+      const dashboardObserver = new MutationObserver(syncDashboardPreviewV25);
+      dashboardObserver.observe(auditSummary, { attributes: true, attributeFilter: ['class'] });
+    }
+
     window.__omnixmlInlineHandlersMigrated = true;
+    window.__omnixmlDashboardStateV25 = { sync: syncDashboardPreviewV25 };
   };
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', start, { once: true });
