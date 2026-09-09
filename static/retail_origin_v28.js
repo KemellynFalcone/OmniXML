@@ -39,10 +39,11 @@
         const cfop = text(first(prod, 'CFOP'));
         if (cfop) cfops.add(cfop);
       }
+      const listaCfops = Array.from(cfops);
       byKey.set(chave, {
         chave,
-        retail: Array.from(cfops).some(cfop => RETAIL_CFOPS.has(cfop)),
-        cfops: Array.from(cfops),
+        retail: listaCfops.length > 0 && listaCfops.every(cfop => RETAIL_CFOPS.has(cfop)),
+        cfops: listaCfops,
         arquivo: file?.webkitRelativePath || file?.name || ''
       });
     } catch (_) {}
