@@ -132,6 +132,15 @@
     real.classList.toggle('hidden', !hasRealAudit);
   };
 
+  const loadSpedLocalV26 = () => {
+    if (document.querySelector('script[data-omnixml-sped-local-v26]')) return;
+    const script = document.createElement('script');
+    script.src = '/static/sped_local_v26.js?v=1';
+    script.dataset.omnixmlSpedLocalV26 = '1';
+    script.defer = true;
+    document.head.appendChild(script);
+  };
+
   const start = () => {
     migrate(document);
     const observer = new MutationObserver(records => {
@@ -150,6 +159,7 @@
       dashboardObserver.observe(auditSummary, { attributes: true, attributeFilter: ['class'] });
     }
 
+    loadSpedLocalV26();
     window.__omnixmlInlineHandlersMigrated = true;
     window.__omnixmlDashboardStateV25 = { sync: syncDashboardPreviewV25 };
   };
