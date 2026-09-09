@@ -6,28 +6,12 @@ on:
   pull_request:
     branches: [main]
 
-permissions:
-  contents: write
-
 jobs:
   test:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-        with:
-          ref: ${{ github.event_name == 'pull_request' && github.head_ref || github.ref }}
-      - name: Materializar SPED local v26
-        if: github.event_name == 'pull_request' && github.head_ref == 'feature-sped-local-v26'
-        run: |
-          python tools/apply_sped_local_v26.py
-          if ! git diff --quiet -- web_app_browser.py; then
-            git config user.name "github-actions[bot]"
-            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-            git add web_app_browser.py
-            git commit -m "feat: integra SPED Fiscal local v26"
-            git push origin HEAD:${{ github.head_ref }}
-          fi
       - name: Python
         uses: actions/setup-python@v5
         with:
