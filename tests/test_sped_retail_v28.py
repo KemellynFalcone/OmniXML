@@ -6,6 +6,7 @@ def test_v28_identifica_cfop_varejo_por_chave():
     assert "new Set(['5929', '6929'])" in js
     assert "text(first(ide, 'mod')) !== '55'" in js
     assert "byKey.set(chave" in js
+    assert "listaCfops.every(cfop => RETAIL_CFOPS.has(cfop))" in js
     assert 'window.__omnixmlRetailOrigin' in js
 
 
