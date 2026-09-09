@@ -1,14 +1,14 @@
 from pathlib import Path
 
 
-def test_dashboard_v25_sincroniza_preview_com_faixa_de_auditoria():
+def test_dashboard_v25_sincroniza_dados_reais_com_faixa_de_auditoria():
     js = Path('static/inline_handler_bridge_v5.js').read_text(encoding='utf-8')
     assert 'syncDashboardPreviewV25' in js
     assert "document.getElementById('faixa-resumo-auditoria')" in js
     assert "document.getElementById('dashboard-preview-v24')" in js
     assert "document.getElementById('dashboard-real-v24')" in js
     assert "const hasRealAudit = !summary.classList.contains('hidden')" in js
-    assert "preview.classList.toggle('hidden', hasRealAudit)" in js
+    assert "preview.classList.add('hidden')" in js
     assert "real.classList.toggle('hidden', !hasRealAudit)" in js
 
 

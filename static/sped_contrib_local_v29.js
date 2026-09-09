@@ -134,11 +134,128 @@
     };
   }
 
+  function metric(title, xmlValue, spedValue) {
+    const diff = Number(xmlValue || 0) - Number(spedValue || 0);
+    const box = document.createElement('div');
+    box.className = 'pis-confront-v30__metric';
+    const label = document.createElement('strong');
+    label.textContent = title;
+    const values = document.createElement('div');
+    values.className = 'pis-confront-v30__values';
+
+    for (const [name, value, kind] of [
+      ['XMLs', xmlValue, ''],
+      ['EFD', spedValue, ''],
+      ['Diferença', diff, Math.abs(diff) < 0.005 ? 'ok' : 'diff']
+    ]) {
+      const item = document.createElement('span');
+      if (kind) item.className = kind;
+      item.append(document.createTextNode(name));
+      const amount = document.createElement('b');
+      amount.textContent = money(value);
+      item.append(amount);
+      values.append(item);
+    }
+
+    box.append(label, values);
+    return { box, diff };
+  }
+
+  function renderConfront(summary) {
+    let section = document.getElementById('pis-cofins-confront-v30');
+    if (section) section.remove();
+    section = document.createElement('section');
+    section.id = 'pis-cofins-confront-v30';
+    section.className = 'pis-confront-v30';
+
+    const xml = window.__omnixmlXmlPisCofins?.snapshot?.();
+    if (!xml || !xml.notas_saida) {
+      const empty = document.createElement('div');
+      empty.className = 'pis-confront-v30__empty';
+      empty.textContent = 'A EFD-Contribuições foi processada. Para confrontar com os XMLs, importe e audite primeiro os XMLs da mesma empresa e do mesmo período.';
+      section.append(empty);
+      document.getElementById('res-pis-cofins')?.prepend(section);
+      return { disponivel: false };
+    }
+
+    const head = document.createElement('div');
+    head.className = 'pis-confront-v30__head';
+    const copy = document.createElement('div');
+    const title = document.createElement('h4');
+    title.textContent = 'Confronto documental: XMLs × EFD-Contribuições';
+    const subtitle = document.createElement('p');
+    subtitle.textContent = 'Receitas e contribuições dos documentos fiscais comparadas com C170/C175.';
+    copy.append(title, subtitle);
+    const badge = document.createElement('span');
+    badge.className = 'pis-confront-v30__badge';
+    badge.textContent = `${xml.notas_saida} notas de saída`;
+    head.append(copy, badge);
+
+    const grid = document.createElement('div');
+    grid.className = 'pis-confront-v30__grid';
+    const receita = metric('Receita documental', xml.totais.receita, summary.total_receita);
+    const pis = metric('PIS documental', xml.totais.pis, summary.total_pis);
+    const cofins = metric('COFINS documental', xml.totais.cofins, summary.total_cofins);
+    grid.append(receita.box, pis.box, cofins.box);
+
+    const tableWrap = document.createElement('div');
+    tableWrap.className = 'pis-confront-v30__table-wrap';
+    const table = document.createElement('table');
+    table.className = 'pis-confront-v30__table';
+    const thead = document.createElement('thead');
+    const header = document.createElement('tr');
+    for (const label of ['CST PIS', 'Receita XML', 'Receita EFD', 'Diferença', 'PIS XML', 'PIS EFD']) {
+      const th = document.createElement('th');
+      th.textContent = label;
+      header.append(th);
+    }
+    thead.append(header);
+    const tbody = document.createElement('tbody');
+    const xmlByCst = new Map((xml.csts || []).map(row => [row.cst, row]));
+    const efdByCst = new Map((summary.csts || []).map(row => [row.cst, row]));
+    const allCsts = Array.from(new Set([...xmlByCst.keys(), ...efdByCst.keys()])).sort();
+    for (const cst of allCsts) {
+      const xr = xmlByCst.get(cst) || {};
+      const er = efdByCst.get(cst) || {};
+      const row = document.createElement('tr');
+      const values = [
+        cst,
+        money(xr.vl_opr),
+        money(er.vl_opr),
+        money(Number(xr.vl_opr || 0) - Number(er.vl_opr || 0)),
+        money(xr.vl_pis),
+        money(er.vl_pis)
+      ];
+      for (const value of values) {
+        const td = document.createElement('td');
+        td.textContent = value;
+        row.append(td);
+      }
+      tbody.append(row);
+    }
+    table.append(thead, tbody);
+    tableWrap.append(table);
+
+    const note = document.createElement('p');
+    note.className = 'pis-confront-v30__note';
+    note.textContent = 'Este confronto é documental e usa os valores presentes nos XMLs e nos registros C170/C175. A apuração final do PIS/COFINS deve ser validada separadamente contra o Bloco M (M200/M210 e M600/M610), pois pode conter créditos, ajustes e outros componentes.';
+
+    section.append(head, grid, tableWrap, note);
+    document.getElementById('res-pis-cofins')?.prepend(section);
+    return {
+      disponivel: true,
+      xml: xml.totais,
+      efd: { receita: summary.total_receita, pis: summary.total_pis, cofins: summary.total_cofins },
+      diferencas: { receita: receita.diff, pis: pis.diff, cofins: cofins.diff }
+    };
+  }
+
   function renderResult(summary) {
     const total = document.getElementById('total-receita-pis');
     if (total) total.textContent = money(summary.total_receita);
     if (window.dtPisCofins?.clear) window.dtPisCofins.clear().rows.add(summary.csts).draw();
     document.getElementById('res-pis-cofins')?.classList.remove('hidden');
+    return renderConfront(summary);
   }
 
   async function processFiles(fileList) {
@@ -170,10 +287,10 @@
       }
 
       const summary = aggregate(rows);
-      renderResult(summary);
+      const confronto = renderResult(summary);
       setStatus(`EFD-Contribuições processada localmente: ${files.length} arquivo(s), ${rows.length} registro(s) de saída suportado(s)`, 'emerald');
       window.__omnixmlEfdContribLast = {
-        version: 29,
+        version: 30,
         files: files.map(file => file.webkitRelativePath || file.name),
         registros_lidos: { c170: rawC170, c175: rawC175 },
         registros_saida_suportados: rows.length,
@@ -182,6 +299,7 @@
           pis: summary.total_pis,
           cofins: summary.total_cofins
         },
+        confronto,
         csts: summary.csts.map(item => ({ ...item })),
         detalhes: rows.map(row => ({ ...row }))
       };
@@ -206,9 +324,10 @@
 
     window.importarPisCofins = () => input.click();
     window.__omnixmlEfdContribLocal = {
-      version: 29,
+      version: 30,
       parseEfdContribText,
-      aggregate
+      aggregate,
+      renderConfront
     };
   }
 
