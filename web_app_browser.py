@@ -220,6 +220,7 @@ def index():
         '<script src="/static/inutilization_capture.js?v=1&cnpj=1"></script>'
         '<script src="/static/closing_diagnosis_v2.js?v=3"></script>'
         '<script src="/static/browser_local_v2.js?v=2&cnpj=1&style=13"></script>'
+        '<script src="/static/sped_local_v26.js?v=1"></script>'
         '<script src="/static/inline_handler_bridge_v5.js?v=1"></script>'
     )
     return Response(html.replace('</body>', f'{ponte}</body>'), mimetype='text/html')
@@ -263,6 +264,7 @@ def health():
         'style_attr_app': 'class-driven-progress-v13',
         'style_attr_probe': 'validated-and-retired-v18',
         'script_assets': 'local-jquery-jszip-chartjs-v21',
+        'sped_processing': 'browser-local-c100-v26',
         'cnpj_support': 'alphanumeric-14-rfb-v1',
         'csp_migration': 'strict-script-policy-report-only',
         'csp_enforcement': 'strict-script-policy-enforced-v6',
