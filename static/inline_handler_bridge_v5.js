@@ -139,6 +139,15 @@
     document.head.appendChild(script);
   };
 
+  const loadEfdContribLocalV29 = () => {
+    if (document.querySelector('script[data-omnixml-efd-contrib-local-v29]')) return;
+    const script = document.createElement('script');
+    script.src = '/static/sped_contrib_local_v29.js?v=1';
+    script.dataset.omnixmlEfdContribLocalV29 = '1';
+    script.defer = true;
+    document.head.appendChild(script);
+  };
+
   const start = () => {
     migrate(document);
     const observer = new MutationObserver(records => {
@@ -160,6 +169,7 @@
     loadFailureReconciliationV27();
     loadRetailOriginV28();
     loadSpedLocalV26();
+    loadEfdContribLocalV29();
     window.__omnixmlInlineHandlersMigrated = true;
     window.__omnixmlDashboardStateV25 = { sync: syncDashboardPreviewV25 };
   };
