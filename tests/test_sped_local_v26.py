@@ -31,7 +31,8 @@ def test_sped_local_v26_alimenta_tela_e_detalhamento_existentes():
     assert 'window.confrontarSPED = () => input.click()' in js
 
 
-def test_sped_local_v26_integrado_ao_app_e_health():
-    app = Path('web_app_browser.py').read_text(encoding='utf-8')
-    assert '/static/sped_local_v26.js?v=1' in app
-    assert "'sped_processing': 'browser-local-c100-v26'" in app
+def test_sped_local_v26_e_carregado_pelo_bridge_existente():
+    bridge = Path('static/inline_handler_bridge_v5.js').read_text(encoding='utf-8')
+    assert 'loadSpedLocalV26' in bridge
+    assert "script.src = '/static/sped_local_v26.js?v=1'" in bridge
+    assert "document.head.appendChild(script)" in bridge
