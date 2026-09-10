@@ -114,6 +114,10 @@
     loadScript('script[data-omnixml-cofins-auditor-v34]', '/static/cofins_auditor_v34.js?v=1', 'omnixmlCofinsAuditorV34');
   };
 
+  const loadCofinsPendenciasV38 = () => loadScript(
+    'script[data-omnixml-cofins-pendencias-v38]', '/static/cofins_pendencias_v38.js?v=1', 'omnixmlCofinsPendenciasV38'
+  );
+
   const loadFailureReconciliationV27 = () => loadScript(
     'script[data-omnixml-failure-reconciliation-v27]', '/static/failure_reconciliation_v27.js?v=1', 'omnixmlFailureReconciliationV27'
   );
@@ -165,6 +169,7 @@
     loadSpedLocalV26();
     loadEfdContribLocalV29();
     loadCofinsAuditorV34();
+    loadCofinsPendenciasV38();
     window.__omnixmlInlineHandlersMigrated = true;
     window.__omnixmlDashboardStateV25 = { sync: syncDashboardPreviewV25 };
   };
