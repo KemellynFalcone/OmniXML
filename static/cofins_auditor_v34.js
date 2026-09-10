@@ -24,7 +24,7 @@
     const ensure = (cst, cfop) => {
       const key = `${cst || '00'}|${cfop || 'N/A'}`;
       if (!groups.has(key)) groups.set(key, {
-        cst: cst || '00', cfop: cfop || 'N/A', xmlBase: 0, efdBase: 0,
+        key, cst: cst || '00', cfop: cfop || 'N/A', xmlBase: 0, efdBase: 0,
         xmlValue: 0, efdValue: 0, xmlRows: [], efdRows: []
       });
       return groups.get(key);
@@ -53,12 +53,24 @@
       .sort((a, b) => Math.abs(b.diff) - Math.abs(a.diff) || a.cfop.localeCompare(b.cfop));
   }
 
-  function trace(group) {
-    const keys = Array.from(new Set(group.xmlRows.map(row => row.chave).filter(Boolean)));
-    const refs = Array.from(new Set(group.efdRows.map(row => `${row.source}:L${row.line}`)));
-    const xmlText = keys.length ? `${keys.length} chave(s): ${keys.slice(0, 2).map(key => key.slice(-10)).join(', ')}${keys.length > 2 ? '…' : ''}` : '—';
-    const efdText = refs.length ? `${refs.length} linha(s): ${refs.slice(0, 2).join(', ')}${refs.length > 2 ? '…' : ''}` : '—';
-    return `XML ${xmlText} | EFD ${efdText}`;
+  function uniqueCount(rows, key) {
+    const values = rows.map(row => row?.[key]).filter(Boolean);
+    return values.length ? new Set(values).size : rows.length;
+  }
+
+  function traceSummary(group) {
+    return `${uniqueCount(group.xmlRows, 'chave')} XMLs × ${group.efdRows.length} registros EFD`;
+  }
+
+  function noteNumber(row) {
+    const explicit = row.numero || row.nNF || row.num_doc || row.numero_documento;
+    if (explicit) return String(explicit);
+    const key = String(row.chave || '');
+    if (key.length >= 34) {
+      const value = key.slice(25, 34).replace(/^0+/, '');
+      if (value) return value;
+    }
+    return '—';
   }
 
   function td(text, className = '') {
@@ -68,10 +80,109 @@
     return cell;
   }
 
+  function th(text) {
+    const cell = document.createElement('th');
+    cell.textContent = text;
+    return cell;
+  }
+
+  function detailsTable(rows, origin) {
+    const wrap = document.createElement('div');
+    wrap.className = 'cofins-auditor-v35__detail-wrap';
+    const title = document.createElement('h6');
+    title.textContent = origin === 'XML' ? `XMLs envolvidos (${rows.length})` : `Registros EFD envolvidos (${rows.length})`;
+    wrap.append(title);
+
+    const tableWrap = document.createElement('div');
+    tableWrap.className = 'cofins-auditor-v35__detail-scroll';
+    const table = document.createElement('table');
+    table.className = 'cofins-auditor-v35__detail-table';
+    const head = document.createElement('thead');
+    const hr = document.createElement('tr');
+    ['Nota','Chave','CFOP','CST','Base COFINS','COFINS','Referência'].forEach(label => hr.append(th(label)));
+    head.append(hr);
+    const body = document.createElement('tbody');
+
+    for (const row of rows) {
+      const tr = document.createElement('tr');
+      const reference = origin === 'EFD'
+        ? `${row.source || 'EFD'}${row.line ? `:L${row.line}` : ''}`
+        : 'XML';
+      tr.append(
+        td(noteNumber(row)),
+        td(row.chave || '—', 'cofins-auditor-v35__key'),
+        td(row.cfop || '—'),
+        td(row.cst_cofins || '—'),
+        td(money(row.base_cofins)),
+        td(money(row.valor_cofins)),
+        td(reference, 'cofins-auditor-v35__reference')
+      );
+      body.append(tr);
+    }
+    table.append(head, body);
+    tableWrap.append(table);
+    wrap.append(tableWrap);
+    return wrap;
+  }
+
+  function closeDetails() {
+    document.getElementById('cofins-auditor-v35-modal')?.remove();
+  }
+
+  function openDetails(group) {
+    closeDetails();
+    const modal = document.createElement('div');
+    modal.id = 'cofins-auditor-v35-modal';
+    modal.className = 'cofins-auditor-v35__modal';
+    const dialog = document.createElement('div');
+    dialog.className = 'cofins-auditor-v35__dialog';
+    dialog.setAttribute('role', 'dialog');
+    dialog.setAttribute('aria-modal', 'true');
+
+    const header = document.createElement('div');
+    header.className = 'cofins-auditor-v35__header';
+    const heading = document.createElement('div');
+    const title = document.createElement('h5');
+    title.textContent = `Detalhes COFINS — CST ${group.cst} / CFOP ${group.cfop}`;
+    const subtitle = document.createElement('p');
+    subtitle.textContent = `${traceSummary(group)} • diferença ${money(group.diff)}. Arquivo/linha é referência técnica para localizar o registro no SPED.`;
+    heading.append(title, subtitle);
+    const close = document.createElement('button');
+    close.type = 'button';
+    close.className = 'cofins-auditor-v35__close';
+    close.dataset.cofinsClose = '1';
+    close.setAttribute('aria-label', 'Fechar detalhes');
+    close.textContent = '×';
+    header.append(heading, close);
+
+    const content = document.createElement('div');
+    content.className = 'cofins-auditor-v35__content';
+    content.append(detailsTable(group.xmlRows, 'XML'), detailsTable(group.efdRows, 'EFD'));
+    dialog.append(header, content);
+    modal.append(dialog);
+    document.body.append(modal);
+  }
+
+  function traceCell(group, index) {
+    const cell = document.createElement('td');
+    cell.className = 'cofins-auditor-v34__trace';
+    const summary = document.createElement('div');
+    summary.className = 'cofins-auditor-v35__summary';
+    summary.textContent = traceSummary(group);
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'cofins-auditor-v35__details-btn';
+    button.dataset.cofinsDetails = String(index);
+    button.textContent = 'Ver detalhes';
+    cell.append(summary, button);
+    return cell;
+  }
+
   function render() {
     const section = document.getElementById('pis-cofins-confront-v30');
     if (!section) return false;
     document.getElementById('cofins-auditor-v34')?.remove();
+    closeDetails();
 
     const xml = window.__omnixmlXmlPisCofins?.snapshot?.();
     const efd = window.__omnixmlEfdContribLast;
@@ -97,29 +208,28 @@
       table.className = 'cofins-auditor-v34__table';
       const thead = document.createElement('thead');
       const hr = document.createElement('tr');
-      ['CST','CFOP','Base XML','Base EFD','Alíq. efetiva XML','Alíq. efetiva EFD','COFINS XML','COFINS EFD','Diferença','Diagnóstico','Rastreabilidade'].forEach(label => {
-        const th = document.createElement('th'); th.textContent = label; hr.append(th);
-      });
+      ['CST','CFOP','Base XML','Base EFD','Alíq. efetiva XML','Alíq. efetiva EFD','COFINS XML','COFINS EFD','Diferença','Diagnóstico','Rastreabilidade'].forEach(label => hr.append(th(label)));
       thead.append(hr);
       const tbody = document.createElement('tbody');
-      for (const item of diagnostic) {
+      diagnostic.forEach((item, index) => {
         const tr = document.createElement('tr');
         tr.append(
           td(item.cst), td(item.cfop), td(money(item.xmlBase)), td(money(item.efdBase)),
           td(pct(item.xmlRate)), td(pct(item.efdRate)), td(money(item.xmlValue)), td(money(item.efdValue)),
           td(money(item.diff), 'cofins-auditor-v34__diff'), td(item.cause, 'cofins-auditor-v34__cause'),
-          td(trace(item), 'cofins-auditor-v34__trace')
+          traceCell(item, index)
         );
         tbody.append(tr);
-      }
+      });
       table.append(thead, tbody); wrap.append(table); block.append(wrap);
     }
 
     section.append(block);
-    window.__omnixmlCofinsAuditorV34 = { version: 34, buildDiagnostic, last: diagnostic.map(item => ({
+    window.__omnixmlCofinsAuditorV34 = { version: 35, buildDiagnostic, groups: diagnostic, last: diagnostic.map(item => ({
       cst_cofins: item.cst, cfop: item.cfop, base_xml: item.xmlBase, base_efd: item.efdBase,
       aliquota_efetiva_xml: item.xmlRate, aliquota_efetiva_efd: item.efdRate,
-      cofins_xml: item.xmlValue, cofins_efd: item.efdValue, diferenca: item.diff, diagnostico: item.cause
+      cofins_xml: item.xmlValue, cofins_efd: item.efdValue, diferenca: item.diff, diagnostico: item.cause,
+      rastreabilidade: traceSummary(item)
     })) };
     return true;
   }
@@ -139,8 +249,17 @@
       }
     });
 
-    // Render inicial antes de observar para que a própria montagem do auditor
-    // não retroalimente o MutationObserver e congele a importação da EFD.
+    document.addEventListener('click', event => {
+      const detailsButton = event.target.closest('[data-cofins-details]');
+      if (detailsButton) {
+        const index = Number(detailsButton.dataset.cofinsDetails);
+        const group = window.__omnixmlCofinsAuditorV34?.groups?.[index];
+        if (group) openDetails(group);
+        return;
+      }
+      if (event.target.closest('[data-cofins-close]') || event.target.id === 'cofins-auditor-v35-modal') closeDetails();
+    });
+
     render();
     observer.observe(document.body, observerOptions);
   }
