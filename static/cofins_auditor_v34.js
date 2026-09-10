@@ -238,6 +238,9 @@
     const observerOptions = { childList: true, subtree: true };
     let refreshing = false;
     const observer = new MutationObserver(() => {
+      // A abertura do drill-down também altera o DOM. Enquanto o modal existir,
+      // essa mutação é da própria UI do auditor e não deve disparar novo render.
+      if (document.getElementById('cofins-auditor-v35-modal')) return;
       if (!window.__omnixmlEfdContribLast || refreshing) return;
       refreshing = true;
       observer.disconnect();
