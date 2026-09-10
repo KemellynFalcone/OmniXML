@@ -73,6 +73,86 @@
     return '—';
   }
 
+  function aggregateByKey(rows) {
+    const map = new Map();
+    for (const row of rows || []) {
+      const key = String(row.chave || '').trim();
+      if (!key) continue;
+      if (!map.has(key)) map.set(key, {
+        chave: key,
+        numero: noteNumber(row),
+        cfop: row.cfop || '—',
+        cst_cofins: row.cst_cofins || '—',
+        base_cofins: 0,
+        valor_cofins: 0,
+        source: row.source || '',
+        line: row.line || '',
+        rows: []
+      });
+      const item = map.get(key);
+      item.base_cofins += Number(row.base_cofins || 0);
+      item.valor_cofins += Number(row.valor_cofins || 0);
+      item.rows.push(row);
+      if (!item.source && row.source) item.source = row.source;
+      if (!item.line && row.line) item.line = row.line;
+    }
+    return map;
+  }
+
+  function buildDivergenceEvidence(group) {
+    const xmlWithKey = group.xmlRows.filter(row => String(row.chave || '').trim());
+    const efdWithKey = group.efdRows.filter(row => String(row.chave || '').trim());
+    const pareamento_seguro = xmlWithKey.length === group.xmlRows.length
+      && efdWithKey.length === group.efdRows.length
+      && xmlWithKey.length > 0
+      && efdWithKey.length > 0;
+
+    if (!pareamento_seguro) {
+      return {
+        pareamento_seguro: false,
+        divergentXmlRows: [],
+        divergentEfdRows: [],
+        conciliadosOcultos: 0,
+        divergentCount: null,
+        note: 'Diferença agregada sem vínculo individual conclusivo. Os registros conciliados não são listados para evitar confusão.'
+      };
+    }
+
+    const xmlMap = aggregateByKey(group.xmlRows);
+    const efdMap = aggregateByKey(group.efdRows);
+    const keys = new Set([...xmlMap.keys(), ...efdMap.keys()]);
+    const divergentXmlRows = [];
+    const divergentEfdRows = [];
+    let conciliadosOcultos = 0;
+
+    for (const key of keys) {
+      const xmlRow = xmlMap.get(key);
+      const efdRow = efdMap.get(key);
+      const xmlValue = Number(xmlRow?.valor_cofins || 0);
+      const efdValue = Number(efdRow?.valor_cofins || 0);
+      if (xmlRow && efdRow && closeMoney(xmlValue - efdValue)) {
+        conciliadosOcultos += 1;
+        continue;
+      }
+      if (xmlRow) divergentXmlRows.push(xmlRow);
+      if (efdRow) divergentEfdRows.push(efdRow);
+    }
+
+    return {
+      pareamento_seguro: true,
+      divergentXmlRows,
+      divergentEfdRows,
+      conciliadosOcultos,
+      divergentCount: new Set([
+        ...divergentXmlRows.map(row => row.chave),
+        ...divergentEfdRows.map(row => row.chave)
+      ]).size,
+      note: conciliadosOcultos
+        ? `${conciliadosOcultos} documento(s) conciliado(s) oculto(s).`
+        : 'Nenhum documento conciliado foi incluído no detalhe.'
+    };
+  }
+
   function td(text, className = '') {
     const cell = document.createElement('td');
     cell.textContent = text;
@@ -90,7 +170,7 @@
     const wrap = document.createElement('div');
     wrap.className = 'cofins-auditor-v35__detail-wrap';
     const title = document.createElement('h6');
-    title.textContent = origin === 'XML' ? `XMLs envolvidos (${rows.length})` : `Registros EFD envolvidos (${rows.length})`;
+    title.textContent = origin === 'XML' ? `XMLs divergentes (${rows.length})` : `Registros EFD divergentes (${rows.length})`;
     wrap.append(title);
 
     const tableWrap = document.createElement('div');
@@ -131,6 +211,7 @@
 
   function openDetails(group) {
     closeDetails();
+    const evidence = buildDivergenceEvidence(group);
     const modal = document.createElement('div');
     modal.id = 'cofins-auditor-v35-modal';
     modal.className = 'cofins-auditor-v35__modal';
@@ -143,9 +224,11 @@
     header.className = 'cofins-auditor-v35__header';
     const heading = document.createElement('div');
     const title = document.createElement('h5');
-    title.textContent = `Detalhes COFINS — CST ${group.cst} / CFOP ${group.cfop}`;
+    title.textContent = `Diferença COFINS — CST ${group.cst} / CFOP ${group.cfop}`;
     const subtitle = document.createElement('p');
-    subtitle.textContent = `${traceSummary(group)} • diferença ${money(group.diff)}. Arquivo/linha é referência técnica para localizar o registro no SPED.`;
+    subtitle.textContent = evidence.pareamento_seguro
+      ? `${evidence.divergentCount} documento(s) explicam a diferença ${money(group.diff)}. ${evidence.note}`
+      : `${money(group.diff)} de diferença no grupo. ${evidence.note}`;
     heading.append(title, subtitle);
     const close = document.createElement('button');
     close.type = 'button';
@@ -157,7 +240,30 @@
 
     const content = document.createElement('div');
     content.className = 'cofins-auditor-v35__content';
-    content.append(detailsTable(group.xmlRows, 'XML'), detailsTable(group.efdRows, 'EFD'));
+
+    const conclusion = document.createElement('div');
+    conclusion.className = 'cofins-auditor-v36__conclusion';
+    const conclusionTitle = document.createElement('strong');
+    conclusionTitle.textContent = group.cause;
+    const conclusionText = document.createElement('span');
+    conclusionText.textContent = ` Base XML ${money(group.xmlBase)} × EFD ${money(group.efdBase)}; alíquota efetiva XML ${pct(group.xmlRate)} × EFD ${pct(group.efdRate)}; COFINS XML ${money(group.xmlValue)} × EFD ${money(group.efdValue)}.`;
+    conclusion.append(conclusionTitle, conclusionText);
+    content.append(conclusion);
+
+    if (evidence.pareamento_seguro) {
+      if (evidence.divergentXmlRows.length) content.append(detailsTable(evidence.divergentXmlRows, 'XML'));
+      if (evidence.divergentEfdRows.length) content.append(detailsTable(evidence.divergentEfdRows, 'EFD'));
+    } else {
+      const aggregate = document.createElement('div');
+      aggregate.className = 'cofins-auditor-v36__aggregate';
+      const aggregateTitle = document.createElement('strong');
+      aggregateTitle.textContent = 'Diferença agregada sem vínculo individual conclusivo';
+      const aggregateText = document.createElement('p');
+      aggregateText.textContent = 'A EFD deste grupo não fornece chave suficiente para relacionar cada linha a uma nota específica com segurança. Por isso o OmniXML não lista todos os XMLs/registros como se fossem divergentes. Use o diagnóstico agregado acima para revisar base, alíquota e valor.';
+      aggregate.append(aggregateTitle, aggregateText);
+      content.append(aggregate);
+    }
+
     dialog.append(header, content);
     modal.append(dialog);
     document.body.append(modal);
@@ -225,7 +331,7 @@
     }
 
     section.append(block);
-    window.__omnixmlCofinsAuditorV34 = { version: 35, buildDiagnostic, groups: diagnostic, last: diagnostic.map(item => ({
+    window.__omnixmlCofinsAuditorV34 = { version: 36, buildDiagnostic, buildDivergenceEvidence, groups: diagnostic, last: diagnostic.map(item => ({
       cst_cofins: item.cst, cfop: item.cfop, base_xml: item.xmlBase, base_efd: item.efdBase,
       aliquota_efetiva_xml: item.xmlRate, aliquota_efetiva_efd: item.efdRate,
       cofins_xml: item.xmlValue, cofins_efd: item.efdValue, diferenca: item.diff, diagnostico: item.cause,
@@ -238,8 +344,6 @@
     const observerOptions = { childList: true, subtree: true };
     let refreshing = false;
     const observer = new MutationObserver(() => {
-      // A abertura do drill-down também altera o DOM. Enquanto o modal existir,
-      // essa mutação é da própria UI do auditor e não deve disparar novo render.
       if (document.getElementById('cofins-auditor-v35-modal')) return;
       if (!window.__omnixmlEfdContribLast || refreshing) return;
       refreshing = true;

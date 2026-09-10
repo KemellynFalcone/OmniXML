@@ -17,10 +17,10 @@ def test_v35_abre_detalhes_sob_demanda_sem_inline_handler():
     assert 'setAttribute(\'style\'' not in js
 
 
-def test_v35_detalha_documentos_xml_e_registros_efd():
+def test_v35_detalha_apenas_documentos_divergentes_quando_houver_pareamento():
     js = Path('static/cofins_auditor_v34.js').read_text(encoding='utf-8')
-    assert 'XMLs envolvidos' in js
-    assert 'Registros EFD envolvidos' in js
+    assert 'XMLs divergentes' in js
+    assert 'Registros EFD divergentes' in js
     assert "['Nota','Chave','CFOP','CST','Base COFINS','COFINS','Referência']" in js
     assert "row.source || 'EFD'" in js
     assert 'row.line' in js
