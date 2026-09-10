@@ -125,9 +125,24 @@
   }
 
   function install() {
-    const observer = new MutationObserver(() => { if (window.__omnixmlEfdContribLast) render(); });
-    observer.observe(document.body, { childList: true, subtree: true });
+    const observerOptions = { childList: true, subtree: true };
+    let refreshing = false;
+    const observer = new MutationObserver(() => {
+      if (!window.__omnixmlEfdContribLast || refreshing) return;
+      refreshing = true;
+      observer.disconnect();
+      try {
+        render();
+      } finally {
+        observer.observe(document.body, observerOptions);
+        refreshing = false;
+      }
+    });
+
+    // Render inicial antes de observar para que a própria montagem do auditor
+    // não retroalimente o MutationObserver e congele a importação da EFD.
     render();
+    observer.observe(document.body, observerOptions);
   }
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', install, { once: true });
