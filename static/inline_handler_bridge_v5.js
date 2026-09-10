@@ -103,6 +103,17 @@
     document.head.appendChild(link);
   };
 
+  const loadCofinsAuditorV34 = () => {
+    if (!document.querySelector('link[data-omnixml-cofins-auditor-v34]')) {
+      const link = document.createElement('link');
+      link.rel = 'stylesheet';
+      link.href = '/static/cofins_auditor_v34.css?v=1';
+      link.dataset.omnixmlCofinsAuditorV34 = '1';
+      document.head.appendChild(link);
+    }
+    loadScript('script[data-omnixml-cofins-auditor-v34]', '/static/cofins_auditor_v34.js?v=1', 'omnixmlCofinsAuditorV34');
+  };
+
   const loadFailureReconciliationV27 = () => loadScript(
     'script[data-omnixml-failure-reconciliation-v27]', '/static/failure_reconciliation_v27.js?v=1', 'omnixmlFailureReconciliationV27'
   );
@@ -153,6 +164,7 @@
     loadXmlPisCofinsV30();
     loadSpedLocalV26();
     loadEfdContribLocalV29();
+    loadCofinsAuditorV34();
     window.__omnixmlInlineHandlersMigrated = true;
     window.__omnixmlDashboardStateV25 = { sync: syncDashboardPreviewV25 };
   };
