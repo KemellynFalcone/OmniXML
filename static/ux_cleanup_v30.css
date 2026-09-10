@@ -1,4 +1,4 @@
-/* UX v30/v32: estados vazios orientam a ação; confrontos mostram somente dados reais. */
+/* UX v30/v32/v33: estados vazios orientam a ação; confrontos mostram somente dados reais. */
 #dashboard-preview-v24 {
   display: none !important;
 }
@@ -10,6 +10,12 @@
 
 .sped-empty-v23__hero {
   grid-template-columns: minmax(0, 1fr) !important;
+}
+
+/* v33: tabela DataTables legada de PIS/COFINS foi aposentada. */
+#tabelaPisCofins_wrapper,
+#tabelaPisCofins {
+  display: none !important;
 }
 
 .pis-confront-v30 {
