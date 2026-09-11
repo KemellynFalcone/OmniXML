@@ -57,6 +57,18 @@
     return metadata.get(key) || metadata.get(basename(key)) || {};
   }
 
+  function seriesFor(row) {
+    const meta = metaFor(row);
+    if (meta.serie && meta.serie !== '—') return String(meta.serie);
+    const chave = String(meta.chave || '').replace(/\D/g, '');
+    if (chave.length === 44) {
+      const serieChave = chave.slice(22, 25);
+      const normalizada = String(Number(serieChave));
+      return normalizada === 'NaN' ? serieChave : normalizada;
+    }
+    return '—';
+  }
+
   function shortReason(reason) {
     const r = String(reason || 'Falha de validação fiscal.');
     if (/contingência/i.test(r) && /protocolo/i.test(r)) return 'Contingência sem protocolo SEFAZ';
@@ -124,7 +136,7 @@
     table.replaceChildren();
     const thead = node('thead', 'bg-slate-50');
     const row = node('tr');
-    for (const label of ['Arquivo', 'Nº Cupom/Nota', 'Chave de Acesso', 'Valor (R$)', 'Motivo']) row.appendChild(node('th', '', label));
+    for (const label of ['Arquivo', 'Nº Cupom/Nota', 'Série', 'Chave de Acesso', 'Valor (R$)', 'Motivo']) row.appendChild(node('th', '', label));
     thead.appendChild(row);
     table.append(thead, node('tbody'));
   }
@@ -155,11 +167,12 @@
       buttons: [{ extend: 'excelHtml5', text: 'Exportar Excel', className: 'dt-button' }],
       data: current,
       columns: [
-        { data: 'arquivo', width: '16%', className: 'font-mono font-semibold text-slate-700', render: (d, type, row) => { const value = basename(row?.arquivo || row?.caminho || d || ''); return type === 'display' ? escapeHtml(value) : value; } },
+        { data: 'arquivo', width: '15%', className: 'font-mono font-semibold text-slate-700', render: (d, type, row) => { const value = basename(row?.arquivo || row?.caminho || d || ''); return type === 'display' ? escapeHtml(value) : value; } },
         { data: null, width: '9%', className: 'font-mono font-bold text-slate-800 whitespace-nowrap', render: (d, type, row) => { const value = metaFor(row).numero || '—'; return type === 'display' ? escapeHtml(value) : value; } },
-        { data: null, width: '34%', className: 'font-mono text-xs text-slate-600 break-all', render: (d, type, row) => { const value = metaFor(row).chave || 'Não identificada'; return type === 'display' ? escapeHtml(value) : value; }, createdCell: (cell, d, row) => { const chave = metaFor(row).chave || ''; cell.title = chave; if (!chave) cell.classList.add('text-slate-400', 'italic'); } },
+        { data: null, width: '7%', className: 'font-mono font-semibold text-slate-700 whitespace-nowrap', render: (d, type, row) => { const value = seriesFor(row); return type === 'display' ? escapeHtml(value) : value; } },
+        { data: null, width: '31%', className: 'font-mono text-xs text-slate-600 break-all', render: (d, type, row) => { const value = metaFor(row).chave || 'Não identificada'; return type === 'display' ? escapeHtml(value) : value; }, createdCell: (cell, d, row) => { const chave = metaFor(row).chave || ''; cell.title = chave; if (!chave) cell.classList.add('text-slate-400', 'italic'); } },
         { data: null, width: '12%', className: 'font-bold text-slate-800 whitespace-nowrap text-right', render: (d, type, row) => type === 'display' ? brl(metaFor(row).valor || 0) : Number(metaFor(row).valor || 0) },
-        { data: 'motivo', width: '29%', render: (reason, type) => type !== 'display' ? String(reason || '') : escapeHtml(`⚠️ ${shortReason(reason)}`), createdCell: (cell, reason) => { cell.title = String(reason || ''); cell.classList.add('truncate', 'px-2', 'py-1', 'rounded', 'bg-rose-50', 'text-rose-700', 'border', 'border-rose-200', 'font-medium', 'text-xs', 'cursor-help'); } }
+        { data: 'motivo', width: '26%', render: (reason, type) => type !== 'display' ? String(reason || '') : escapeHtml(`⚠️ ${shortReason(reason)}`), createdCell: (cell, reason) => { cell.title = String(reason || ''); cell.classList.add('truncate', 'px-2', 'py-1', 'rounded', 'bg-rose-50', 'text-rose-700', 'border', 'border-rose-200', 'font-medium', 'text-xs', 'cursor-help'); } }
       ],
       order: [[1, 'asc']]
     });
