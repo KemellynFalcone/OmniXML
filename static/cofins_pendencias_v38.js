@@ -55,6 +55,10 @@
 
     const items = Object.values(readStore());
     const counts = STATUS.reduce((acc, s) => ({ ...acc, [s]: items.filter(i => i.status === s).length }), {});
+    const signature = JSON.stringify(counts);
+    if (panel.dataset.renderSignature === signature) return;
+    panel.dataset.renderSignature = signature;
+
     panel.innerHTML = `
       <div style="display:flex;justify-content:space-between;gap:12px;align-items:center;flex-wrap:wrap">
         <div>
@@ -124,17 +128,33 @@
       writeStore(data);
       wrap.querySelector('#cofins-v38-current-badge').innerHTML = badge(status);
       wrap.querySelector('#cofins-v38-updated').textContent = `Última revisão: ${formatDate(data[key].atualizado_em)}`;
+      const panel = document.getElementById('cofins-pendencias-v38');
+      if (panel) delete panel.dataset.renderSignature;
       renderQueue();
     });
   }
 
-  const observer = new MutationObserver(() => {
-    const modal = document.getElementById('cofins-auditor-v35-modal');
+  const observer = new MutationObserver(records => {
+    let shouldRenderQueue = false;
+    let modal = null;
+
+    for (const record of records) {
+      for (const node of Array.from(record.addedNodes || [])) {
+        if (node?.nodeType !== Node.ELEMENT_NODE) continue;
+        if (node.id === 'cofins-auditor-v34' || node.querySelector?.('#cofins-auditor-v34')) {
+          shouldRenderQueue = true;
+        }
+        if (node.id === 'cofins-auditor-v35-modal') modal = node;
+        else if (!modal) modal = node.querySelector?.('#cofins-auditor-v35-modal') || null;
+      }
+    }
+
+    if (shouldRenderQueue) renderQueue();
     if (modal) injectTreatment(modal);
-    renderQueue();
   });
 
   observer.observe(document.documentElement, { childList: true, subtree: true });
-  window.addEventListener('DOMContentLoaded', renderQueue);
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', renderQueue, { once: true });
+  else renderQueue();
   window.OmniXMLCofinsPendenciasV38 = { readStore, renderQueue };
 })();
