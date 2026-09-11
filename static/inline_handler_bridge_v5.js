@@ -118,6 +118,8 @@
     'script[data-omnixml-cofins-pendencias-v38]', '/static/cofins_pendencias_v38.js?v=1', 'omnixmlCofinsPendenciasV38'
   );
 
+  const ENABLE_COFINS_PENDENCIAS_V38 = false;
+
   const loadCofinsOrigemV39 = () => loadScript(
     'script[data-omnixml-cofins-origem-v39]', '/static/cofins_origem_v39.js?v=1', 'omnixmlCofinsOrigemV39'
   );
@@ -181,7 +183,7 @@
     loadSpedLocalV26();
     loadEfdContribLocalV29();
     loadCofinsAuditorV34();
-    loadCofinsPendenciasV38();
+    if (ENABLE_COFINS_PENDENCIAS_V38) loadCofinsPendenciasV38();
     loadCofinsOrigemV39();
     loadBlocoMV40();
     loadBlocoMArredondamentoV401();
