@@ -145,7 +145,7 @@
     if (typeof $ === 'undefined' || typeof $.fn?.DataTable === 'undefined') return false;
     const table = document.getElementById('tabelaErros');
     if (!table || typeof dtErros === 'undefined' || !dtErros) return false;
-    if (table.dataset.failureV2 === '2') return true;
+    if (table.dataset.failureV2 === '1') return true;
 
     const settings = dtErros.settings?.()[0];
     if (settings && settings._bInitComplete === false) return false;
@@ -154,7 +154,7 @@
     try { current = dtErros.rows().data().toArray(); } catch (_) {}
     try { dtErros.destroy(); } catch (_) { return false; }
 
-    table.dataset.failureV2 = '2';
+    table.dataset.failureV2 = '1';
     rebuildHeader(table);
 
     dtErros = $('#tabelaErros').DataTable({
