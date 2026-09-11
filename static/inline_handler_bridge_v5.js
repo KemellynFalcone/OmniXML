@@ -126,6 +126,10 @@
     'script[data-omnixml-bloco-m-v40]', '/static/bloco_m_v40.js?v=1', 'omnixmlBlocoMV40'
   );
 
+  const loadBlocoMArredondamentoV401 = () => loadScript(
+    'script[data-omnixml-bloco-m-arredondamento-v40-1]', '/static/bloco_m_arredondamento_v40_1.js?v=1', 'omnixmlBlocoMArredondamentoV401'
+  );
+
   const loadFailureReconciliationV27 = () => loadScript(
     'script[data-omnixml-failure-reconciliation-v27]', '/static/failure_reconciliation_v27.js?v=1', 'omnixmlFailureReconciliationV27'
   );
@@ -180,6 +184,7 @@
     loadCofinsPendenciasV38();
     loadCofinsOrigemV39();
     loadBlocoMV40();
+    loadBlocoMArredondamentoV401();
     window.__omnixmlInlineHandlersMigrated = true;
     window.__omnixmlDashboardStateV25 = { sync: syncDashboardPreviewV25 };
   };
