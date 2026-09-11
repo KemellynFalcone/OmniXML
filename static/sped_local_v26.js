@@ -198,10 +198,8 @@
       const summary = summarize(unique);
       spedNotasDetalhadas = summary.detalhes;
       const xmlNfeSai = renderComparison(summary);
-      const retailLabel = xmlNfeSai.quantidadeVarejo
-        ? ` • ${xmlNfeSai.quantidadeVarejo} NF-e 5.929/6.929 tratada(s) como origem varejo`
-        : '';
-      setStatus(`SPED processado localmente: ${files.length} arquivo(s), ${unique.length} documento(s) C100 suportado(s)${retailLabel}`, 'emerald');
+      const fileLabel = files.length === 1 ? '1 arquivo carregado' : `${files.length} arquivos carregados`;
+      setStatus(`SPED processado com sucesso · ${fileLabel}`, 'emerald');
       window.__omnixmlSpedLocalLast = {
         files: files.map(file => file.name),
         c100_total: rawC100,
