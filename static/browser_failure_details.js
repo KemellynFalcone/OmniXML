@@ -79,7 +79,7 @@
       <div class="overflow-x-auto rounded-xl border border-slate-200">
         <table class="w-full text-sm text-left text-slate-600">
           <thead class="bg-slate-50 text-xs uppercase text-slate-500">
-            <tr><th class="p-3">Arquivo</th><th class="p-3">Nº Cupom/Nota</th><th class="p-3">Chave</th><th class="p-3 text-right">Valor</th><th class="p-3">Falha</th></tr>
+            <tr><th class="p-3">Arquivo</th><th class="p-3">Nº Cupom/Nota</th><th class="p-3">Série</th><th class="p-3">Chave de acesso</th><th class="p-3 text-right">Valor (R$)</th><th class="p-3">Motivo</th></tr>
           </thead>
           <tbody id="omnixml-falhas-detalhes"></tbody>
         </table>
@@ -103,13 +103,13 @@
       const valor = Number(meta.valor || 0);
       total += valor;
       if (meta.chave) comChave++;
-      const chave = meta.chave || '—';
       const chaveHtml = meta.chave
         ? `<span class="font-mono text-[11px] text-slate-600 break-all" title="${escape(meta.chave)}">${escape(meta.chave)}</span>`
         : '<span class="text-slate-400">Não identificada</span>';
       linhas.push(`<tr class="border-t border-slate-100 hover:bg-slate-50">
         <td class="p-3 font-mono text-xs font-semibold text-slate-700">${escape(String(arquivo).split(/[\\/]/).pop())}</td>
         <td class="p-3 font-mono font-bold text-slate-800">${escape(meta.numero || '—')}</td>
+        <td class="p-3 font-mono font-semibold text-slate-700 whitespace-nowrap">${escape(meta.serie || '—')}</td>
         <td class="p-3 max-w-[390px]">${chaveHtml}</td>
         <td class="p-3 text-right font-bold text-slate-800 whitespace-nowrap">${moeda(valor)}</td>
         <td class="p-3"><span class="inline-block px-2 py-1 rounded bg-rose-50 text-rose-700 border border-rose-200 text-xs font-semibold cursor-help" title="${escape(erro.motivo || '')}">${escape(motivoCurto(erro.motivo))}</span></td>
@@ -118,7 +118,7 @@
     document.getElementById('omnixml-falhas-qtd').textContent = porArquivo.size.toLocaleString('pt-BR');
     document.getElementById('omnixml-falhas-valor').textContent = moeda(total);
     document.getElementById('omnixml-falhas-chave-qtd').textContent = comChave.toLocaleString('pt-BR');
-    document.getElementById('omnixml-falhas-detalhes').innerHTML = linhas.join('') || '<tr><td colspan="5" class="p-4 text-center text-slate-400">Nenhuma falha fiscal encontrada.</td></tr>';
+    document.getElementById('omnixml-falhas-detalhes').innerHTML = linhas.join('') || '<tr><td colspan="6" class="p-4 text-center text-slate-400">Nenhuma falha fiscal encontrada.</td></tr>';
   }
 
   document.addEventListener('DOMContentLoaded', () => {
