@@ -64,13 +64,38 @@
       note?.remove();
       return;
     }
+
+    const expected = 'Diferenças pequenas podem surgir porque os documentos acumulam arredondamentos por item, enquanto M210/M610 calculam a contribuição sobre a base consolidada. O OmniXML mantém a diferença visível, mas não a classifica automaticamente como erro fiscal.';
     if (!note) {
       note = document.createElement('div');
       note.id = 'bloco-m-v40-1-rounding-note';
-      note.style.cssText = 'margin:12px 0;padding:12px 14px;border:1px solid #fde68a;border-radius:10px;background:#fffbeb;color:#78350f;font-size:12px;line-height:1.5';
+      note.className = 'bloco-m-v40__note bloco-m-v40-1__rounding-note';
+      const strong = document.createElement('strong');
+      strong.textContent = 'v40.1 · Provável arredondamento';
+      const text = document.createElement('p');
+      text.textContent = expected;
+      note.append(strong, text);
       section.querySelector('.bloco-m-v40__table-wrap')?.after(note);
+      return;
     }
-    note.innerHTML = '<strong>v40.1 · Provável arredondamento</strong><br>Diferenças pequenas podem surgir porque os documentos acumulam arredondamentos por item, enquanto M210/M610 calculam a contribuição sobre a base consolidada. O OmniXML mantém a diferença visível, mas não a classifica automaticamente como erro fiscal.';
+
+    const text = note.querySelector('p');
+    if (text && text.textContent !== expected) text.textContent = expected;
+  }
+
+  function applyDiagnosis(tr, result) {
+    const reading = tr?.children?.[4];
+    const diff = tr?.children?.[3];
+    if (!reading) return;
+
+    const unchanged = reading.dataset.v401Diagnosis === result.kind && reading.textContent === result.text;
+    if (!unchanged) {
+      reading.textContent = result.text;
+      reading.dataset.v401Diagnosis = result.kind;
+    }
+
+    reading.classList.toggle('bloco-m-v40-1__rounding', result.kind === 'arredondamento');
+    diff?.classList.toggle('bloco-m-v40-1__rounding-diff', result.kind === 'arredondamento');
   }
 
   function enhance() {
@@ -86,28 +111,12 @@
     const pis = roundingDiagnosis('PIS', efd.totais.pis, snapshot.total_pis_detalhado, snapshot.m210 || []);
     const cofins = roundingDiagnosis('COFINS', efd.totais.cofins, snapshot.total_cofins_detalhado, snapshot.m610 || []);
 
-    [[rows[0], pis], [rows[1], cofins]].forEach(([tr, result]) => {
-      const reading = tr?.children?.[4];
-      const diff = tr?.children?.[3];
-      if (!reading) return;
-      reading.textContent = result.text;
-      reading.dataset.v401Diagnosis = result.kind;
-      if (result.kind === 'arredondamento') {
-        reading.style.fontWeight = '700';
-        reading.style.color = '#92400e';
-        if (diff) {
-          diff.style.background = '#fffbeb';
-          diff.style.color = '#92400e';
-        }
-      } else {
-        reading.style.fontWeight = '';
-        reading.style.color = '';
-      }
-    });
-
+    applyDiagnosis(rows[0], pis);
+    applyDiagnosis(rows[1], cofins);
     addExplanation(section, [pis, cofins]);
+
     window.__omnixmlBlocoMArredondamentoV401 = {
-      version: '40.1',
+      version: '40.2',
       roundingDiagnosis,
       roundingTolerance,
       blockMMatchesConsolidatedCalculation,
@@ -115,17 +124,26 @@
     };
   }
 
-  const observer = new MutationObserver(() => queueMicrotask(enhance));
+  const observer = new MutationObserver(records => {
+    const relevant = records.some(record => Array.from(record.addedNodes || []).some(node =>
+      node?.nodeType === Node.ELEMENT_NODE && (
+        node.id === 'bloco-m-v40' ||
+        node.querySelector?.('#bloco-m-v40')
+      )
+    ));
+    if (relevant) queueMicrotask(enhance);
+  });
+
   const start = () => {
     observer.observe(document.documentElement, { childList: true, subtree: true });
-    enhance();
     window.__omnixmlBlocoMArredondamentoV401 = {
-      version: '40.1',
+      version: '40.2',
       roundingDiagnosis,
       roundingTolerance,
       blockMMatchesConsolidatedCalculation,
       enhance
     };
+    enhance();
   };
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', start, { once: true });

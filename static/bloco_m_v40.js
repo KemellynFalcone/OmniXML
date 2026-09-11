@@ -168,18 +168,44 @@
     return card;
   }
 
+  function renderSignature(efd, apuracao) {
+    return JSON.stringify({
+      efd: {
+        pis: Number(efd?.totais?.pis || 0),
+        cofins: Number(efd?.totais?.cofins || 0),
+        registros: Number(efd?.registros_saida_suportados || 0)
+      },
+      blocoM: {
+        pis: Number(apuracao?.total_pis_detalhado || 0),
+        cofins: Number(apuracao?.total_cofins_detalhado || 0),
+        m210: apuracao?.m210?.length || 0,
+        m610: apuracao?.m610?.length || 0,
+        fontes: apuracao?.fontes || []
+      }
+    });
+  }
+
   function render() {
     if (renderLock) return;
     const host = document.getElementById('pis-cofins-confront-v30');
     const efd = window.__omnixmlEfdContribLast;
     if (!host || !efd?.totais || !captures.size) return;
+
+    const apuracao = aggregate();
+    const signature = renderSignature(efd, apuracao);
+    const existing = document.getElementById('bloco-m-v40');
+    if (existing?.dataset?.renderSignature === signature) {
+      window.__omnixmlBlocoMArredondamentoV401?.enhance?.();
+      return;
+    }
+
     renderLock = true;
     try {
-      document.getElementById('bloco-m-v40')?.remove();
-      const apuracao = aggregate();
+      existing?.remove();
       const section = document.createElement('section');
       section.id = 'bloco-m-v40';
       section.className = 'bloco-m-v40';
+      section.dataset.renderSignature = signature;
 
       const head = document.createElement('div');
       head.className = 'bloco-m-v40__head';
@@ -229,7 +255,7 @@
       section.append(warning);
       host.append(section);
 
-      window.__omnixmlBlocoMV40 = { version: 40, parseBlockM, snapshot: aggregate, render };
+      queueMicrotask(() => window.__omnixmlBlocoMArredondamentoV401?.enhance?.());
     } finally {
       renderLock = false;
     }
@@ -245,11 +271,20 @@
     return value;
   };
 
-  const observer = new MutationObserver(() => render());
+  const observer = new MutationObserver(records => {
+    const relevant = records.some(record => Array.from(record.addedNodes || []).some(node =>
+      node?.nodeType === Node.ELEMENT_NODE && (
+        node.id === 'pis-cofins-confront-v30' ||
+        node.querySelector?.('#pis-cofins-confront-v30')
+      )
+    ));
+    if (relevant) queueMicrotask(render);
+  });
+
   const start = () => {
     observer.observe(document.documentElement, { childList: true, subtree: true });
-    render();
     window.__omnixmlBlocoMV40 = { version: 40, parseBlockM, snapshot: aggregate, render };
+    render();
   };
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', start, { once: true });
   else start();
