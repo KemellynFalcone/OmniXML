@@ -132,6 +132,21 @@
     'script[data-omnixml-bloco-m-arredondamento-v40-1]', '/static/bloco_m_arredondamento_v40_1.js?v=1', 'omnixmlBlocoMArredondamentoV401'
   );
 
+  const loadBlocoMVisualV402 = () => {
+    if (!document.querySelector('link[data-omnixml-bloco-m-visual-v40-2]')) {
+      const link = document.createElement('link');
+      link.rel = 'stylesheet';
+      link.href = '/static/bloco_m_visual_v40_2.css?v=1';
+      link.dataset.omnixmlBlocoMVisualV402 = '1';
+      document.head.appendChild(link);
+    }
+    loadScript(
+      'script[data-omnixml-bloco-m-visual-v40-2]',
+      '/static/bloco_m_visual_v40_2.js?v=1',
+      'omnixmlBlocoMVisualV402'
+    );
+  };
+
   const loadFailureReconciliationV27 = () => loadScript(
     'script[data-omnixml-failure-reconciliation-v27]', '/static/failure_reconciliation_v27.js?v=1', 'omnixmlFailureReconciliationV27'
   );
@@ -187,6 +202,7 @@
     loadCofinsOrigemV39();
     loadBlocoMV40();
     loadBlocoMArredondamentoV401();
+    loadBlocoMVisualV402();
     window.__omnixmlInlineHandlersMigrated = true;
     window.__omnixmlDashboardStateV25 = { sync: syncDashboardPreviewV25 };
   };
