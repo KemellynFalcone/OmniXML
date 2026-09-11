@@ -199,11 +199,15 @@
       spedNotasDetalhadas = summary.detalhes;
       const xmlNfeSai = renderComparison(summary);
       const fileLabel = files.length === 1 ? '1 arquivo carregado' : `${files.length} arquivos carregados`;
+      const retailTraceLabel = xmlNfeSai.quantidadeVarejo
+        ? `${xmlNfeSai.quantidadeVarejo} NF-e 5.929/6.929 tratada(s) como origem varejo`
+        : '';
       setStatus(`SPED processado com sucesso · ${fileLabel}`, 'emerald');
       window.__omnixmlSpedLocalLast = {
         files: files.map(file => file.name),
         c100_total: rawC100,
         documentos_suportados: unique.length,
+        varejo_trace: retailTraceLabel,
         totais: {
           nfe_entrada: summary.sped_nfe_ent,
           nfe_saida: summary.sped_nfe_sai,
