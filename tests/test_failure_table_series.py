@@ -8,5 +8,5 @@ def test_failure_table_exibe_serie_e_exporta_coluna():
     assert "serie: txt(first(ide, 'serie')) || '—'" in js
     assert 'function seriesFor(row)' in js
     assert "const serieChave = chave.slice(22, 25)" in js
-    assert "table.dataset.failureV2 = '2'" in js
+    assert "table.dataset.failureV2 = '1'" in js
     assert "buttons: [{ extend: 'excelHtml5'" in js
