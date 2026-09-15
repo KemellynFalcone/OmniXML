@@ -76,7 +76,7 @@
 
   function renderSummary() {
     const auditor = document.getElementById('cofins-auditor-v34');
-    if (!auditor) return false;
+    if (!auditor?.parentNode) return false;
     const items = findings();
     if (!items.length) {
       document.getElementById('diagnostico-fiscal-v403')?.remove();
@@ -88,8 +88,8 @@
       panel = document.createElement('section');
       panel.id = 'diagnostico-fiscal-v403';
       panel.className = 'diagnostico-fiscal-v403';
-      auditor.insertBefore(panel, auditor.firstChild);
     }
+    if (panel.nextElementSibling !== auditor) auditor.parentNode.insertBefore(panel, auditor);
 
     const totalImpact = items.reduce((sum, item) => sum + item.impact, 0);
     const critical = items.filter(item => item.severity === 'Crítico').length;
@@ -106,7 +106,7 @@
         <div>
           <span class="diagnostico-fiscal-v403__eyebrow">Diagnóstico Fiscal 2.0</span>
           <strong>Prioridade de revisão</strong>
-          <small>Os grupos abaixo estão ordenados pelo risco e pelo impacto estimado.</small>
+          <small>Visão única da auditoria: impacto, gravidade e causa provável.</small>
         </div>
       </div>
       <div class="diagnostico-fiscal-v403__metrics">
@@ -116,38 +116,7 @@
         <div><span>Baixo impacto</span><strong>${low}</strong></div>
         <div><span>Principal causa</span><strong>${mainCause}</strong></div>
       </div>`;
-
-    enhanceTable(items);
     return true;
-  }
-
-  function enhanceTable(items) {
-    const auditor = document.getElementById('cofins-auditor-v34');
-    const table = auditor?.querySelector('table');
-    if (!table) return;
-
-    table.querySelectorAll('.diagnostico-fiscal-v403__priority').forEach(node => node.remove());
-    const headerRow = table.querySelector('thead tr');
-    if (headerRow) {
-      const th = document.createElement('th');
-      th.className = 'diagnostico-fiscal-v403__priority';
-      th.textContent = 'Prioridade';
-      headerRow.append(th);
-    }
-
-    const rows = Array.from(table.querySelectorAll('tbody tr'));
-    const groups = Array.isArray(window.__omnixmlCofinsAuditorV34?.groups) ? window.__omnixmlCofinsAuditorV34.groups : [];
-    rows.forEach((row, index) => {
-      const group = groups[index];
-      if (!group) return;
-      const key = `${group.cst || '00'}|${group.cfop || 'N/A'}`;
-      const item = items.find(candidate => candidate.key === key);
-      if (!item) return;
-      const td = document.createElement('td');
-      td.className = 'diagnostico-fiscal-v403__priority';
-      td.innerHTML = `<span class="diagnostico-fiscal-v403__rank">#${item.priority}</span><span class="diagnostico-fiscal-v403__badge ${badgeClass(item.severity)}">${item.severity}</span><small>${money(item.impact)}</small>`;
-      row.append(td);
-    });
   }
 
   function enrichModal() {
@@ -176,11 +145,19 @@
     return true;
   }
 
+  function scheduleInitialRender(attempt = 0) {
+    if (renderSummary()) return;
+    if (attempt >= 20) return;
+    setTimeout(() => scheduleInitialRender(attempt + 1), 250);
+  }
+
   function install() {
-    renderSummary();
+    scheduleInitialRender();
     document.addEventListener('omnixml:cofins-audit-ready', renderSummary);
+    document.addEventListener('omnixml:cofins-pendency-updated', renderSummary);
     document.addEventListener('click', event => {
       if (!event.target.closest('[data-cofins-details]')) return;
+      renderSummary();
       requestAnimationFrame(() => requestAnimationFrame(enrichModal));
     });
     window.OmniXMLDiagnosticoFiscalV403 = { findings, renderSummary, enrichModal, severity, causeType, actionFor };
