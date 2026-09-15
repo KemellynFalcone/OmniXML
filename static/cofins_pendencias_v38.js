@@ -18,11 +18,16 @@
     return { key: `${cst}|${cfop}`, cst, cfop };
   }
 
+  function defaultStatusFromDiagnosis(diagnosis) {
+    const text = String(diagnosis || '');
+    if (/conciliado/i.test(text)) return 'Conciliado';
+    if (/base de cálculo divergente|arredondamento/i.test(text)) return 'Revisar';
+    return 'Crítico';
+  }
+
   function defaultStatus(modal) {
     const diagnosis = modal.querySelector('.cofins-auditor-v37__guidance-row span')?.textContent || '';
-    if (/conciliado/i.test(diagnosis)) return 'Conciliado';
-    if (/base de cálculo divergente/i.test(diagnosis)) return 'Revisar';
-    return 'Crítico';
+    return defaultStatusFromDiagnosis(diagnosis);
   }
 
   function formatDate(value) {
@@ -38,37 +43,79 @@
       'Conciliado': 'background:#dcfce7;color:#166534;border-color:#bbf7d0',
       'Justificado': 'background:#dbeafe;color:#1d4ed8;border-color:#bfdbfe'
     };
-    return `<span style="display:inline-flex;padding:4px 8px;border-radius:999px;border:1px solid;font-size:11px;font-weight:800;${map[status] || map.Revisar}">${label}</span>`;
+    return `<span style="display:inline-flex;padding:4px 9px;border-radius:999px;border:1px solid;font-size:11px;font-weight:800;${map[status] || map.Revisar}">${label}</span>`;
+  }
+
+  function auditItems() {
+    const groups = Array.isArray(window.__omnixmlCofinsAuditorV34?.groups)
+      ? window.__omnixmlCofinsAuditorV34.groups
+      : [];
+    const store = readStore();
+
+    return groups.map(group => {
+      const cst = String(group?.cst || group?.cst_cofins || 'N/A');
+      const cfop = String(group?.cfop || 'N/A');
+      const key = `${cst}|${cfop}`;
+      const saved = store[key];
+      return {
+        key,
+        cst,
+        cfop,
+        status: saved?.status || defaultStatusFromDiagnosis(group?.cause || group?.diagnostico),
+        justificativa: saved?.justificativa || '',
+        atualizado_em: saved?.atualizado_em || '',
+        persisted: Boolean(saved)
+      };
+    });
   }
 
   function renderQueue() {
     const host = document.getElementById('res-pis-cofins');
     if (!host) return false;
 
+    const items = auditItems();
     let panel = document.getElementById('cofins-pendencias-v38');
+
+    if (!items.length) {
+      panel?.remove();
+      return false;
+    }
+
     if (!panel) {
       panel = document.createElement('div');
       panel.id = 'cofins-pendencias-v38';
-      panel.style.cssText = 'margin:12px 0 16px;padding:14px;border:1px solid #e2e8f0;border-radius:12px;background:#fff';
-      host.prepend(panel);
+      panel.style.cssText = 'margin:8px 0 10px;padding:10px 12px;border:1px solid #dbe3ef;border-left:4px solid #2563eb;border-radius:10px;background:#f8fafc';
     }
 
-    const items = Object.values(readStore());
-    const counts = STATUS.reduce((acc, s) => ({ ...acc, [s]: items.filter(i => i.status === s).length }), {});
-    const signature = JSON.stringify(counts);
+    const auditor = document.getElementById('cofins-auditor-v34');
+    if (auditor?.parentNode) auditor.parentNode.insertBefore(panel, auditor);
+    else if (!panel.parentNode) host.prepend(panel);
+
+    const counts = STATUS.reduce((acc, status) => ({
+      ...acc,
+      [status]: items.filter(item => item.status === status).length
+    }), {});
+    const pending = (counts['Crítico'] || 0) + (counts['Revisar'] || 0);
+    const resolved = (counts['Conciliado'] || 0) + (counts['Justificado'] || 0);
+    const signature = JSON.stringify({ counts, pending, resolved, keys: items.map(item => item.key) });
     if (panel.dataset.renderSignature === signature) return true;
     panel.dataset.renderSignature = signature;
 
+    const visibleBadges = STATUS
+      .filter(status => (counts[status] || 0) > 0)
+      .map(status => badge(status, `${status}: ${counts[status]}`))
+      .join('');
+
     panel.innerHTML = `
-      <div style="display:flex;justify-content:space-between;gap:12px;align-items:center;flex-wrap:wrap">
-        <div>
-          <div style="font-size:11px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#2563eb">v38 · Classificação e Pendências</div>
-          <strong style="display:block;color:#0f172a;margin-top:3px">Fila de revisão fiscal</strong>
-          <span style="font-size:12px;color:#64748b">Tratativas salvas neste navegador.</span>
+      <div style="display:flex;justify-content:space-between;gap:10px;align-items:center;flex-wrap:wrap">
+        <div style="display:flex;align-items:center;gap:9px;min-width:240px">
+          <div style="width:30px;height:30px;border-radius:8px;background:#dbeafe;color:#1d4ed8;display:flex;align-items:center;justify-content:center;font-weight:900">!</div>
+          <div>
+            <strong style="display:block;color:#0f172a;font-size:13px">${pending} pendência${pending === 1 ? '' : 's'} para revisão</strong>
+            <span style="font-size:11px;color:#64748b">${items.length} divergência${items.length === 1 ? '' : 's'} identificada${items.length === 1 ? '' : 's'} nesta auditoria${resolved ? ` · ${resolved} tratada${resolved === 1 ? '' : 's'}` : ''}</span>
+          </div>
         </div>
-        <div style="display:flex;gap:6px;flex-wrap:wrap">
-          ${STATUS.map(s => badge(s, `${s}: ${counts[s] || 0}`)).join('')}
-        </div>
+        <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">${visibleBadges}</div>
       </div>`;
     return true;
   }
@@ -142,6 +189,7 @@
 
     document.addEventListener('click', event => {
       if (!event.target.closest('[data-cofins-details]')) return;
+      renderQueue();
       requestAnimationFrame(() => {
         const modal = document.getElementById('cofins-auditor-v35-modal');
         if (modal) injectTreatment(modal);
@@ -149,7 +197,7 @@
     });
 
     document.addEventListener('omnixml:cofins-audit-ready', renderQueue);
-    window.OmniXMLCofinsPendenciasV38 = { readStore, renderQueue, injectTreatment };
+    window.OmniXMLCofinsPendenciasV38 = { readStore, renderQueue, injectTreatment, auditItems };
   }
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', install, { once: true });
