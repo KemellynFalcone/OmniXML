@@ -58,6 +58,19 @@ A análise pode apresentar:
 
 O objetivo é diferenciar divergência comprovada, diferença agregada, arredondamento provável e situações que exigem investigação fiscal.
 
+### Diagnóstico Fiscal 2.0
+
+A camada de priorização transforma os grupos divergentes em achados ordenados para revisão. Para cada CST/CFOP, o OmniXML calcula e apresenta:
+
+- **gravidade**: Crítico, Revisar ou Baixo impacto;
+- **impacto estimado**: valor absoluto da diferença de contribuição;
+- **causa provável**: Base de cálculo, Alíquota, Base de cálculo + Alíquota, Arredondamento ou Valor divergente;
+- **confiança**: Alta quando existe rastreabilidade por chave em ambos os lados, ou Média quando a conclusão permanece agregada;
+- **ação recomendada**: orientação específica de conferência conforme o tipo de causa;
+- **prioridade**: ordenação que combina gravidade e maior impacto estimado.
+
+O resumo executivo mostra impacto total estimado, quantidade de itens críticos, itens para revisão, itens de baixo impacto e a causa predominante. Essa classificação é diagnóstica e não substitui validação fiscal/contábil.
+
 ## Segurança da interpretação
 
 Nenhuma sugestão do OmniXML substitui validação fiscal/contábil. O sistema é uma ferramenta de auditoria e apoio à investigação, não um mecanismo de ajuste automático da escrituração.
