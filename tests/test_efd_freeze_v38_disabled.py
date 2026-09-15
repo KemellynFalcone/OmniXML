@@ -1,10 +1,12 @@
 from pathlib import Path
 
 
-def test_v38_fica_desativada_no_loader_durante_hotfix_de_congelamento():
+def test_v38_e_reativada_sem_reintroduzir_hotfix_de_congelamento():
     bridge = Path('static/inline_handler_bridge_v5.js').read_text(encoding='utf-8')
-    assert 'const ENABLE_COFINS_PENDENCIAS_V38 = false;' in bridge
+    v38 = Path('static/cofins_pendencias_v38.js').read_text(encoding='utf-8')
+    assert 'const ENABLE_COFINS_PENDENCIAS_V38 = true;' in bridge
     assert 'if (ENABLE_COFINS_PENDENCIAS_V38) loadCofinsPendenciasV38();' in bridge
+    assert 'MutationObserver' not in v38
 
 
 def test_demais_modulos_de_auditoria_continuam_carregados():

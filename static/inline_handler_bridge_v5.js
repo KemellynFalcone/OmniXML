@@ -115,10 +115,10 @@
   };
 
   const loadCofinsPendenciasV38 = () => loadScript(
-    'script[data-omnixml-cofins-pendencias-v38]', '/static/cofins_pendencias_v38.js?v=1', 'omnixmlCofinsPendenciasV38'
+    'script[data-omnixml-cofins-pendencias-v38]', '/static/cofins_pendencias_v38.js?v=2', 'omnixmlCofinsPendenciasV38'
   );
 
-  const ENABLE_COFINS_PENDENCIAS_V38 = false;
+  const ENABLE_COFINS_PENDENCIAS_V38 = true;
 
   const loadCofinsOrigemV39 = () => loadScript(
     'script[data-omnixml-cofins-origem-v39]', '/static/cofins_origem_v39.js?v=1', 'omnixmlCofinsOrigemV39'
