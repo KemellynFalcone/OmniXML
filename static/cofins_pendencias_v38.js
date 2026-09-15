@@ -38,12 +38,12 @@
 
   function badge(status, label = status) {
     const map = {
-      'Crítico': 'background:#fee2e2;color:#991b1b;border-color:#fecaca',
-      'Revisar': 'background:#fef3c7;color:#92400e;border-color:#fde68a',
-      'Conciliado': 'background:#dcfce7;color:#166534;border-color:#bbf7d0',
-      'Justificado': 'background:#dbeafe;color:#1d4ed8;border-color:#bfdbfe'
+      'Crítico': 'background:#fff1f2;color:#be123c;border-color:#fecdd3',
+      'Revisar': 'background:#fffbeb;color:#b45309;border-color:#fde68a',
+      'Conciliado': 'background:#ecfdf5;color:#047857;border-color:#a7f3d0',
+      'Justificado': 'background:#eff6ff;color:#1d4ed8;border-color:#bfdbfe'
     };
-    return `<span style="display:inline-flex;padding:4px 9px;border-radius:999px;border:1px solid;font-size:11px;font-weight:800;${map[status] || map.Revisar}">${label}</span>`;
+    return `<span style="display:inline-flex;align-items:center;padding:5px 10px;border-radius:999px;border:1px solid;font-size:11px;line-height:1;font-weight:800;white-space:nowrap;${map[status] || map.Revisar}">${label}</span>`;
   }
 
   function auditItems() {
@@ -84,7 +84,7 @@
     if (!panel) {
       panel = document.createElement('div');
       panel.id = 'cofins-pendencias-v38';
-      panel.style.cssText = 'margin:8px 0 10px;padding:10px 12px;border:1px solid #dbe3ef;border-left:4px solid #2563eb;border-radius:10px;background:#f8fafc';
+      panel.style.cssText = 'margin:10px 0 12px;padding:12px 14px;border:1px solid #e2e8f0;border-radius:12px;background:#ffffff;box-shadow:0 1px 2px rgba(15,23,42,.04)';
     }
 
     const auditor = document.getElementById('cofins-auditor-v34');
@@ -103,19 +103,30 @@
 
     const visibleBadges = STATUS
       .filter(status => (counts[status] || 0) > 0)
-      .map(status => badge(status, `${status}: ${counts[status]}`))
+      .map(status => badge(status, `${status} ${counts[status]}`))
       .join('');
 
+    const iconBg = pending > 0 ? '#fff7ed' : '#ecfdf5';
+    const iconColor = pending > 0 ? '#ea580c' : '#059669';
+    const iconSymbol = pending > 0 ? '!' : '✓';
+    const title = pending > 0
+      ? `${pending} pendência${pending === 1 ? '' : 's'} para revisão`
+      : 'Auditoria revisada';
+    const subtitle = `${items.length} divergência${items.length === 1 ? '' : 's'} identificada${items.length === 1 ? '' : 's'}${resolved ? ` · ${resolved} tratada${resolved === 1 ? '' : 's'}` : ''}`;
+
     panel.innerHTML = `
-      <div style="display:flex;justify-content:space-between;gap:10px;align-items:center;flex-wrap:wrap">
-        <div style="display:flex;align-items:center;gap:9px;min-width:240px">
-          <div style="width:30px;height:30px;border-radius:8px;background:#dbeafe;color:#1d4ed8;display:flex;align-items:center;justify-content:center;font-weight:900">!</div>
-          <div>
-            <strong style="display:block;color:#0f172a;font-size:13px">${pending} pendência${pending === 1 ? '' : 's'} para revisão</strong>
-            <span style="font-size:11px;color:#64748b">${items.length} divergência${items.length === 1 ? '' : 's'} identificada${items.length === 1 ? '' : 's'} nesta auditoria${resolved ? ` · ${resolved} tratada${resolved === 1 ? '' : 's'}` : ''}</span>
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap">
+        <div style="display:flex;align-items:center;gap:11px;min-width:0;flex:1 1 360px">
+          <div style="width:34px;height:34px;flex:0 0 34px;border-radius:10px;background:${iconBg};color:${iconColor};display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:900">${iconSymbol}</div>
+          <div style="min-width:0">
+            <div style="display:flex;align-items:baseline;gap:8px;flex-wrap:wrap">
+              <strong style="color:#0f172a;font-size:14px;line-height:1.2">${title}</strong>
+              <span style="font-size:11px;color:#94a3b8">${subtitle}</span>
+            </div>
+            <span style="display:block;margin-top:3px;font-size:11px;color:#64748b">Revise os grupos abaixo e registre a tratativa em “Ver detalhes”.</span>
           </div>
         </div>
-        <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">${visibleBadges}</div>
+        <div style="display:flex;gap:6px;align-items:center;justify-content:flex-end;flex-wrap:wrap">${visibleBadges}</div>
       </div>`;
     return true;
   }
