@@ -148,10 +148,18 @@
     return true;
   }
 
+  function removeDuplicateConfidence(modal) {
+    const rows = Array.from(modal.querySelectorAll('.cofins-auditor-v37__guidance-row'));
+    const confidenceRow = rows.find(row => row.querySelector('strong')?.textContent?.trim() === 'Confiança');
+    confidenceRow?.remove();
+  }
+
   function injectTreatment(modal) {
     if (!modal || modal.querySelector('#cofins-tratativa-v38')) return false;
     const content = modal.querySelector('.cofins-auditor-v35__content');
     if (!content) return false;
+
+    removeDuplicateConfidence(modal);
 
     const { key, cst, cfop } = keyFromModal(modal);
     const store = readStore();
@@ -159,31 +167,56 @@
 
     const wrap = document.createElement('div');
     wrap.id = 'cofins-tratativa-v38';
-    wrap.style.cssText = 'margin:14px 0;padding:14px;border:1px solid #dbeafe;border-radius:12px;background:#f8fbff';
+    wrap.style.cssText = 'margin:12px 0 4px;border:1px solid #dbe3ef;border-radius:12px;background:#fff;overflow:hidden';
     wrap.innerHTML = `
-      <div style="display:flex;justify-content:space-between;gap:10px;align-items:flex-start;flex-wrap:wrap">
-        <div>
-          <strong style="color:#0f172a">Tratativa da pendência</strong>
-          <div style="font-size:12px;color:#64748b;margin-top:2px">CST ${cst} / CFOP ${cfop}</div>
+      <button id="cofins-v38-toggle" type="button" aria-expanded="false" style="width:100%;display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 14px;border:0;background:#fff;cursor:pointer;text-align:left">
+        <span style="display:flex;align-items:center;gap:10px;min-width:0">
+          <span style="display:inline-flex;width:30px;height:30px;border-radius:9px;background:#eff6ff;color:#2563eb;align-items:center;justify-content:center;font-weight:900">✓</span>
+          <span>
+            <strong style="display:block;color:#0f172a;font-size:13px">Registrar tratativa</strong>
+            <small style="display:block;margin-top:2px;color:#64748b">CST ${cst} / CFOP ${cfop} · ${saved.atualizado_em ? `Última revisão: ${formatDate(saved.atualizado_em)}` : 'Ainda não revisado'}</small>
+          </span>
+        </span>
+        <span style="display:flex;align-items:center;gap:8px">
+          <span id="cofins-v38-current-badge">${badge(saved.status)}</span>
+          <span id="cofins-v38-chevron" style="font-size:16px;color:#64748b;transition:transform .15s ease">⌄</span>
+        </span>
+      </button>
+      <div id="cofins-v38-form" hidden style="padding:0 14px 14px;border-top:1px solid #eef2f7;background:#fbfdff">
+        <div style="display:grid;grid-template-columns:minmax(180px,220px) minmax(0,1fr);gap:12px;padding-top:12px">
+          <label style="font-size:12px;color:#475569;font-weight:700">Status
+            <select id="cofins-v38-status" style="display:block;width:100%;margin-top:5px;border:1px solid #cbd5e1;border-radius:8px;padding:9px;background:#fff;color:#0f172a">
+              ${STATUS.map(s => `<option ${saved.status === s ? 'selected' : ''}>${s}</option>`).join('')}
+            </select>
+          </label>
+          <label style="font-size:12px;color:#475569;font-weight:700">Observação / justificativa
+            <textarea id="cofins-v38-justificativa" rows="2" placeholder="Ex.: Validado com a contabilidade; diferença esperada; ajuste já realizado..." style="display:block;width:100%;box-sizing:border-box;margin-top:5px;border:1px solid #cbd5e1;border-radius:8px;padding:9px;background:#fff;color:#0f172a;resize:vertical">${saved.justificativa || ''}</textarea>
+          </label>
         </div>
-        <div id="cofins-v38-current-badge">${badge(saved.status)}</div>
-      </div>
-      <div style="display:grid;grid-template-columns:220px 1fr;gap:12px;margin-top:12px">
-        <label style="font-size:12px;color:#475569;font-weight:700">Status
-          <select id="cofins-v38-status" style="display:block;width:100%;margin-top:5px;border:1px solid #cbd5e1;border-radius:8px;padding:8px;background:#fff;color:#0f172a">
-            ${STATUS.map(s => `<option ${saved.status === s ? 'selected' : ''}>${s}</option>`).join('')}
-          </select>
-        </label>
-        <label style="font-size:12px;color:#475569;font-weight:700">Justificativa / observação
-          <textarea id="cofins-v38-justificativa" rows="3" placeholder="Ex.: Divergência validada com a contabilidade; ajuste já refletido na apuração..." style="display:block;width:100%;margin-top:5px;border:1px solid #cbd5e1;border-radius:8px;padding:8px;background:#fff;color:#0f172a;resize:vertical">${saved.justificativa || ''}</textarea>
-        </label>
-      </div>
-      <div style="display:flex;justify-content:space-between;gap:10px;align-items:center;margin-top:10px;flex-wrap:wrap">
-        <small id="cofins-v38-updated" style="color:#64748b">Última revisão: ${formatDate(saved.atualizado_em)}</small>
-        <button id="cofins-v38-save" type="button" style="border:0;border-radius:8px;background:#2563eb;color:#fff;padding:8px 12px;font-size:12px;font-weight:800;cursor:pointer">Salvar tratativa</button>
+        <div style="display:flex;justify-content:space-between;gap:10px;align-items:center;margin-top:10px;flex-wrap:wrap">
+          <small id="cofins-v38-updated" style="color:#64748b">Última revisão: ${formatDate(saved.atualizado_em)}</small>
+          <div style="display:flex;gap:8px;align-items:center">
+            <button id="cofins-v38-cancel" type="button" style="border:1px solid #cbd5e1;border-radius:8px;background:#fff;color:#475569;padding:8px 12px;font-size:12px;font-weight:700;cursor:pointer">Fechar</button>
+            <button id="cofins-v38-save" type="button" style="border:0;border-radius:8px;background:#2563eb;color:#fff;padding:8px 12px;font-size:12px;font-weight:800;cursor:pointer">Salvar tratativa</button>
+          </div>
+        </div>
       </div>`;
 
-    content.insertBefore(wrap, content.children[1] || null);
+    const guidance = content.querySelector('.cofins-auditor-v37__guidance');
+    if (guidance?.nextSibling) content.insertBefore(wrap, guidance.nextSibling);
+    else if (guidance) content.append(wrap);
+    else content.insertBefore(wrap, content.children[1] || null);
+
+    const toggle = wrap.querySelector('#cofins-v38-toggle');
+    const form = wrap.querySelector('#cofins-v38-form');
+    const chevron = wrap.querySelector('#cofins-v38-chevron');
+    const setOpen = open => {
+      form.hidden = !open;
+      toggle.setAttribute('aria-expanded', open ? 'true' : 'false');
+      chevron.style.transform = open ? 'rotate(180deg)' : 'rotate(0deg)';
+    };
+    toggle.addEventListener('click', () => setOpen(form.hidden));
+    wrap.querySelector('#cofins-v38-cancel').addEventListener('click', () => setOpen(false));
 
     wrap.querySelector('#cofins-v38-save').addEventListener('click', () => {
       const status = wrap.querySelector('#cofins-v38-status').value;
@@ -204,9 +237,12 @@
       writeStore(data);
       wrap.querySelector('#cofins-v38-current-badge').innerHTML = badge(status);
       wrap.querySelector('#cofins-v38-updated').textContent = `Última revisão: ${formatDate(data[key].atualizado_em)}`;
+      const summary = toggle.querySelector('small');
+      if (summary) summary.textContent = `CST ${cst} / CFOP ${cfop} · Última revisão: ${formatDate(data[key].atualizado_em)}`;
       const panel = document.getElementById('cofins-pendencias-v38');
       if (panel) delete panel.dataset.renderSignature;
       renderQueue();
+      setOpen(false);
       document.dispatchEvent(new CustomEvent('omnixml:cofins-pendency-updated', { detail: { key, cst, cfop, status } }));
     });
     return true;
