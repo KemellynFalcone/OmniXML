@@ -31,32 +31,32 @@
     catch (_) { return value; }
   }
 
-  function badge(status) {
+  function badge(status, label = status) {
     const map = {
       'Crítico': 'background:#fee2e2;color:#991b1b;border-color:#fecaca',
       'Revisar': 'background:#fef3c7;color:#92400e;border-color:#fde68a',
       'Conciliado': 'background:#dcfce7;color:#166534;border-color:#bbf7d0',
       'Justificado': 'background:#dbeafe;color:#1d4ed8;border-color:#bfdbfe'
     };
-    return `<span style="display:inline-flex;padding:4px 8px;border-radius:999px;border:1px solid;font-size:11px;font-weight:800;${map[status] || map.Revisar}">${status}</span>`;
+    return `<span style="display:inline-flex;padding:4px 8px;border-radius:999px;border:1px solid;font-size:11px;font-weight:800;${map[status] || map.Revisar}">${label}</span>`;
   }
 
   function renderQueue() {
-    const section = document.getElementById('cofins-auditor-v34');
-    if (!section) return;
+    const host = document.getElementById('res-pis-cofins');
+    if (!host) return false;
 
     let panel = document.getElementById('cofins-pendencias-v38');
     if (!panel) {
       panel = document.createElement('div');
       panel.id = 'cofins-pendencias-v38';
       panel.style.cssText = 'margin:12px 0 16px;padding:14px;border:1px solid #e2e8f0;border-radius:12px;background:#fff';
-      section.prepend(panel);
+      host.prepend(panel);
     }
 
     const items = Object.values(readStore());
     const counts = STATUS.reduce((acc, s) => ({ ...acc, [s]: items.filter(i => i.status === s).length }), {});
     const signature = JSON.stringify(counts);
-    if (panel.dataset.renderSignature === signature) return;
+    if (panel.dataset.renderSignature === signature) return true;
     panel.dataset.renderSignature = signature;
 
     panel.innerHTML = `
@@ -67,15 +67,16 @@
           <span style="font-size:12px;color:#64748b">Tratativas salvas neste navegador.</span>
         </div>
         <div style="display:flex;gap:6px;flex-wrap:wrap">
-          ${STATUS.map(s => badge(`${s}: ${counts[s] || 0}`.replace(/: 0$/, ': 0'))).join('')}
+          ${STATUS.map(s => badge(s, `${s}: ${counts[s] || 0}`)).join('')}
         </div>
       </div>`;
+    return true;
   }
 
   function injectTreatment(modal) {
-    if (!modal || modal.querySelector('#cofins-tratativa-v38')) return;
+    if (!modal || modal.querySelector('#cofins-tratativa-v38')) return false;
     const content = modal.querySelector('.cofins-auditor-v35__content');
-    if (!content) return;
+    if (!content) return false;
 
     const { key, cst, cfop } = keyFromModal(modal);
     const store = readStore();
@@ -131,30 +132,26 @@
       const panel = document.getElementById('cofins-pendencias-v38');
       if (panel) delete panel.dataset.renderSignature;
       renderQueue();
+      document.dispatchEvent(new CustomEvent('omnixml:cofins-pendency-updated', { detail: { key, cst, cfop, status } }));
     });
+    return true;
   }
 
-  const observer = new MutationObserver(records => {
-    let shouldRenderQueue = false;
-    let modal = null;
+  function install() {
+    renderQueue();
 
-    for (const record of records) {
-      for (const node of Array.from(record.addedNodes || [])) {
-        if (node?.nodeType !== Node.ELEMENT_NODE) continue;
-        if (node.id === 'cofins-auditor-v34' || node.querySelector?.('#cofins-auditor-v34')) {
-          shouldRenderQueue = true;
-        }
-        if (node.id === 'cofins-auditor-v35-modal') modal = node;
-        else if (!modal) modal = node.querySelector?.('#cofins-auditor-v35-modal') || null;
-      }
-    }
+    document.addEventListener('click', event => {
+      if (!event.target.closest('[data-cofins-details]')) return;
+      requestAnimationFrame(() => {
+        const modal = document.getElementById('cofins-auditor-v35-modal');
+        if (modal) injectTreatment(modal);
+      });
+    });
 
-    if (shouldRenderQueue) renderQueue();
-    if (modal) injectTreatment(modal);
-  });
+    document.addEventListener('omnixml:cofins-audit-ready', renderQueue);
+    window.OmniXMLCofinsPendenciasV38 = { readStore, renderQueue, injectTreatment };
+  }
 
-  observer.observe(document.documentElement, { childList: true, subtree: true });
-  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', renderQueue, { once: true });
-  else renderQueue();
-  window.OmniXMLCofinsPendenciasV38 = { readStore, renderQueue };
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', install, { once: true });
+  else install();
 })();
