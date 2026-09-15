@@ -147,6 +147,21 @@
     );
   };
 
+  const loadDiagnosticoFiscalV403 = () => {
+    if (!document.querySelector('link[data-omnixml-diagnostico-fiscal-v40-3]')) {
+      const link = document.createElement('link');
+      link.rel = 'stylesheet';
+      link.href = '/static/diagnostico_fiscal_v40_3.css?v=1';
+      link.dataset.omnixmlDiagnosticoFiscalV403 = '1';
+      document.head.appendChild(link);
+    }
+    loadScript(
+      'script[data-omnixml-diagnostico-fiscal-v40-3]',
+      '/static/diagnostico_fiscal_v40_3.js?v=1',
+      'omnixmlDiagnosticoFiscalV403'
+    );
+  };
+
   const loadFailureReconciliationV27 = () => loadScript(
     'script[data-omnixml-failure-reconciliation-v27]', '/static/failure_reconciliation_v27.js?v=1', 'omnixmlFailureReconciliationV27'
   );
@@ -203,6 +218,7 @@
     loadBlocoMV40();
     loadBlocoMArredondamentoV401();
     loadBlocoMVisualV402();
+    loadDiagnosticoFiscalV403();
     window.__omnixmlInlineHandlersMigrated = true;
     window.__omnixmlDashboardStateV25 = { sync: syncDashboardPreviewV25 };
   };
