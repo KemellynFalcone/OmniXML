@@ -5,7 +5,7 @@ def test_v38_nao_observa_mutacoes_globais_para_renderizar_fila():
     js = Path('static/cofins_pendencias_v38.js').read_text(encoding='utf-8')
     assert 'MutationObserver' not in js
     assert "document.getElementById('res-pis-cofins')" in js
-    assert "const signature = JSON.stringify(counts);" in js
+    assert "const signature = JSON.stringify({ counts, pending, resolved, keys: items.map(item => item.key) });" in js
     assert 'panel.dataset.renderSignature === signature' in js
 
 
