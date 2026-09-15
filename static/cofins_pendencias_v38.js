@@ -4,6 +4,23 @@
   const STORAGE_KEY = 'omnixml:cofins:pendencias:v38';
   const STATUS = ['Crítico', 'Revisar', 'Conciliado', 'Justificado'];
 
+  function loadDiagnosticoFiscalV403() {
+    if (!document.querySelector('link[data-omnixml-diagnostico-fiscal-v403]')) {
+      const link = document.createElement('link');
+      link.rel = 'stylesheet';
+      link.href = '/static/diagnostico_fiscal_v40_3.css?v=1';
+      link.dataset.omnixmlDiagnosticoFiscalV403 = '1';
+      document.head.appendChild(link);
+    }
+    if (!document.querySelector('script[data-omnixml-diagnostico-fiscal-v403]')) {
+      const script = document.createElement('script');
+      script.src = '/static/diagnostico_fiscal_v40_3.js?v=1';
+      script.dataset.omnixmlDiagnosticoFiscalV403 = '1';
+      script.defer = true;
+      document.head.appendChild(script);
+    }
+  }
+
   const readStore = () => {
     try { return JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}'); }
     catch (_) { return {}; }
@@ -196,6 +213,7 @@
   }
 
   function install() {
+    loadDiagnosticoFiscalV403();
     renderQueue();
 
     document.addEventListener('click', event => {
