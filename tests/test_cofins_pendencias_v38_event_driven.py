@@ -29,7 +29,7 @@ def test_v38_mostra_apenas_badges_com_contagem_maior_que_zero():
     js = Path('static/cofins_pendencias_v38.js').read_text(encoding='utf-8')
     assert 'function badge(status, label = status)' in js
     assert '.filter(status => (counts[status] || 0) > 0)' in js
-    assert '`${status}: ${counts[status]}`' in js
+    assert '`${status} ${counts[status]}`' in js
 
 
 def test_v38_remove_resumo_quando_nao_ha_divergencias_atuais():
