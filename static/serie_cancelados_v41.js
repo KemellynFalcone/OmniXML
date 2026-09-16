@@ -100,7 +100,7 @@
       this.setAttribute('aria-expanded', 'false');
     });
 
-    row.child(detailMarkup(data), 'serie-detalhe-v42-row').show();
+    serieTable.row(rowNode).child(detailMarkup(data), 'serie-detalhe-v42-row').show();
     rowNode.classList.add('serie-detalhe-v42__trigger--open');
     rowNode.setAttribute('aria-expanded', 'true');
   }
