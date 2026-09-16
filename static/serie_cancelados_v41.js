@@ -29,7 +29,8 @@
     const source = cancelledByTypeAndSeries();
     const map = new Map();
     source.forEach(item => {
-      if (!String(item.tipo).includes('NFC-e')) return;
+      const tipo = String(item.tipo);
+      if (!tipo.includes('NFC-e')) return;
       if (!map.has(item.serie)) map.set(item.serie, { serie: item.serie, quantidade: 0, valor: 0 });
       const target = map.get(item.serie);
       target.quantidade += item.quantidade;
