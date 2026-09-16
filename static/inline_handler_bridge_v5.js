@@ -162,6 +162,21 @@
     );
   };
 
+  const loadSerieCanceladosV41 = () => {
+    if (!document.querySelector('link[data-omnixml-serie-cancelados-v41]')) {
+      const link = document.createElement('link');
+      link.rel = 'stylesheet';
+      link.href = '/static/serie_cancelados_v41.css?v=1';
+      link.dataset.omnixmlSerieCanceladosV41 = '1';
+      document.head.appendChild(link);
+    }
+    loadScript(
+      'script[data-omnixml-serie-cancelados-v41]',
+      '/static/serie_cancelados_v41.js?v=1',
+      'omnixmlSerieCanceladosV41'
+    );
+  };
+
   const loadFailureReconciliationV27 = () => loadScript(
     'script[data-omnixml-failure-reconciliation-v27]', '/static/failure_reconciliation_v27.js?v=1', 'omnixmlFailureReconciliationV27'
   );
@@ -219,6 +234,7 @@
     loadBlocoMArredondamentoV401();
     loadBlocoMVisualV402();
     loadDiagnosticoFiscalV403();
+    loadSerieCanceladosV41();
     window.__omnixmlInlineHandlersMigrated = true;
     window.__omnixmlDashboardStateV25 = { sync: syncDashboardPreviewV25 };
   };
