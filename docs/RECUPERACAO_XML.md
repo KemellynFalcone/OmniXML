@@ -42,3 +42,7 @@ Os downloads têm `Cache-Control: no-store`. Limites: 2 MB para A1, 3 MB para en
 ## Validação
 
 Execute `python -m pytest -q` e `python -m pip_audit -r requirements-prod.txt`. Os testes usam certificados e XMLs sintéticos, com transporte fiscal simulado. Depois de configurar o servidor, faça homologação operacional com um A1 próprio e uma chave autorizada em produção: confirme cStat e conteúdo, importe o XML no sistema fiscal e confira que apenas o arquivo final foi baixado. A consulta real não foi executada pela implementação automatizada por falta de A1 autorizado.
+
+### Diagnóstico de falhas de conexão
+
+A tela distingue validação da cadeia TLS, negociação TLS, timeout, erro HTTP (somente código), rede/DNS e contrato SOAP. Informa também a etapa: carregar A1 no TLS, obter WSDL ou executar SOAP. O log registra apenas etapa e categoria fixa (`sefaz_recovery_failure`), sem mensagens brutas de exceção, certificado, senha, token ou envelope SOAP. A falha interrompe as próximas consultas do lote. O diagnóstico não desabilita a validação TLS nem altera automaticamente o certificado ou sua cadeia.

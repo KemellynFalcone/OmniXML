@@ -172,6 +172,7 @@ def distribution_result(data, key):
 
 class FiscalClient:
     def __init__(self, data, password):
+        self.stage = "a1_tls"
         from requests import Session
         from requests_pkcs12 import Pkcs12Adapter
         deadline = time.monotonic() + 120
@@ -214,6 +215,7 @@ class FiscalClient:
         from zeep import Client, Settings
         from zeep.transports import Transport
         from zeep.wsdl.bindings.soap import Soap11Binding, Soap12Binding
+        self.stage = 'wsdl'
         client = Client(endpoint+'?WSDL', transport=Transport(session=self.session,timeout=45,operation_timeout=45),
                         settings=Settings(strict=True,raw_response=True,forbid_dtd=True,forbid_entities=True,forbid_external=True))
         options = []
@@ -252,6 +254,7 @@ class FiscalClient:
             arguments['_soapheaders'] = values
         proxy = client.bind(service,port)
         proxy._binding_options['address'] = endpoint
+        self.stage = 'soap'
         return proxy[name](**arguments).content
 
 
