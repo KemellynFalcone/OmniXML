@@ -7,7 +7,7 @@ import time
 from collections import deque
 from urllib.parse import quote, urlsplit
 
-from flask import Blueprint, Request, Response, jsonify, render_template, request
+from flask import Blueprint, Request, Response, current_app, jsonify, render_template, request
 from werkzeug.exceptions import RequestEntityTooLarge
 
 from services.sefaz_download import (FiscalClient, RecoveryError, UF_CODES, certificate_cnpj,
@@ -57,6 +57,36 @@ def capabilities():
 def private_response(response):
     response.headers['Cache-Control'] = 'no-store'
     return response
+
+
+def connection_diagnostic(error, stage):
+    """Return fixed descriptions only; exception messages may contain secrets/SOAP."""
+    from requests.exceptions import ConnectionError, HTTPError, SSLError, Timeout
+    from zeep.exceptions import Error as ZeepError
+    labels = {'a1_tls':'carregar o A1 na conexão TLS',
+              'wsdl':'carregar o contrato WSDL da SEFAZ',
+              'soap':'enviar a consulta SOAP à SEFAZ'}
+    step = labels.get(stage,'processar a consulta fiscal')
+    if isinstance(error, SSLError):
+        if 'CERTIFICATE_VERIFY_FAILED' in str(error):
+            code, message = 'tls_verify', 'O servidor não conseguiu validar a cadeia TLS do serviço da SEFAZ.'
+        else:
+            code, message = 'tls_handshake', 'A negociação TLS com a SEFAZ falhou. O serviço pode ter recusado a conexão ou o certificado cliente.'
+    elif isinstance(error, Timeout):
+        code, message = 'timeout', 'A SEFAZ não respondeu dentro do tempo limite.'
+    elif isinstance(error, HTTPError):
+        status = error.response.status_code if error.response is not None else None
+        suffix = str(status) if isinstance(status,int) and 100 <= status <= 599 else 'inesperado'
+        code, message = 'http', 'O serviço da SEFAZ respondeu HTTP '+suffix+'.'
+    elif isinstance(error, ConnectionError):
+        code, message = 'network', 'O servidor não conseguiu estabelecer conexão com a SEFAZ (rede/DNS/conexão interrompida).'
+    elif isinstance(error, ZeepError):
+        code, message = 'soap_contract', 'Não foi possível interpretar o contrato ou a resposta SOAP da SEFAZ.'
+    elif stage == 'a1_tls':
+        code, message = 'a1_tls', 'O A1 foi aberto, mas não foi possível carregar sua chave e cadeia no contexto TLS.'
+    else:
+        code, message = 'internal', 'O processamento da consulta encontrou um erro interno.'
+    return code, message+' Etapa: '+step+'.'
 
 
 @blueprint.post('/api/sefaz/recover')
@@ -114,9 +144,12 @@ def download_xml():
             if exc.cooldown:
                 _cooldowns[identity] = time.monotonic()+3600
             return jsonify(error=str(exc),code=exc.code,stop_batch=exc.cooldown),422
-        except Exception:
-            # Do not expose exception traces, SOAP envelopes, certificate paths or secrets.
-            return jsonify(error='Falha na conexão segura com a SEFAZ. Verifique a disponibilidade do serviço e a cadeia do certificado.',code='connection'),502
+        except Exception as exc:
+            stage = getattr(client,'stage','a1_tls') if client is not None else 'a1_tls'
+            code, description = connection_diagnostic(exc,stage)
+            current_app.logger.warning('sefaz_recovery_failure stage=%s category=%s',
+                                       stage if stage in ('a1_tls','wsdl','soap') else 'unknown',code)
+            return jsonify(error=description,code=code,stop_batch=True),502
         finally:
             if client is not None:
                 client.close()

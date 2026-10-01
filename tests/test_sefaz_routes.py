@@ -117,3 +117,37 @@ def test_a1_upload_stream_stays_in_memory(browser):
         assert isinstance(request.files['certificate'].stream,io.BytesIO)
     finally:
         request.close()
+
+
+@pytest.mark.parametrize('kind,expected',[
+    ('tls_verify','tls_verify'),('tls_handshake','tls_handshake'),('timeout','timeout'),
+    ('http','http'),('network','network'),('soap','soap_contract'),('internal','internal')])
+def test_connection_errors_are_specific_and_redacted(browser,a1,monkeypatch,caplog,kind,expected):
+    from requests import Response
+    from requests.exceptions import SSLError,Timeout,HTTPError,ConnectionError
+    from zeep.exceptions import XMLSyntaxError
+    from services.sefaz_routes import connection_diagnostic
+    secret = 'SECRET_CERT_PASSWORD_TOKEN_SOAP'
+    response = Response(); response.status_code = 403
+    errors = {
+        'tls_verify':SSLError('CERTIFICATE_VERIFY_FAILED '+secret),
+        'tls_handshake':SSLError(secret), 'timeout':Timeout(secret),
+        'http':HTTPError(secret,response=response), 'network':ConnectionError(secret),
+        'soap':XMLSyntaxError(secret), 'internal':RuntimeError(secret),
+    }
+    class Fake:
+        stage = 'wsdl'
+        def __init__(self,*args): pass
+        def close(self): pass
+    def fail(*args): raise errors[kind]
+    monkeypatch.setattr(routes,'FiscalClient',Fake)
+    monkeypatch.setattr(routes,'recover',fail)
+    result = post(browser,a1)
+    assert result.status_code == 502
+    assert result.json['code'] == expected and result.json['stop_batch'] is True
+    assert 'WSDL' in result.json['error']
+    assert secret not in result.data.decode() and secret not in caplog.text
+    assert 'category='+expected in caplog.text
+    if kind == 'http': assert 'HTTP 403' in result.json['error']
+    code, message = connection_diagnostic(RuntimeError(secret),'a1_tls')
+    assert code == 'a1_tls' and secret not in message
