@@ -197,3 +197,52 @@ def test_actual_client_context_requires_hostname_and_trusted_server(a1):
         assert context.cert_store_stats()['x509_ca'] > 0
     finally:
         client.close()
+
+
+def test_official_sp_bundle_is_pinned_and_signatures_verify():
+    import ssl
+    from unittest.mock import Mock
+    context = Mock()
+    fiscal.load_sp_server_trust(context)
+    assert context.load_verify_locations.call_count == 1
+    pem = context.load_verify_locations.call_args.kwargs['cadata']
+    assert pem.count('-----BEGIN CERTIFICATE-----') == 4
+    assert 'PRIVATE KEY' not in pem
+    real = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
+    fiscal.load_sp_server_trust(real)
+    assert real.cert_store_stats()['x509_ca'] == 4
+    assert real.verify_mode == ssl.CERT_REQUIRED and real.check_hostname
+
+
+def test_sp_public_ca_only_applies_to_sp_adapter(a1):
+    import ssl
+    from cryptography import x509
+    from cryptography.hazmat.primitives import hashes
+    pin = bytes.fromhex('6e0bff069a26994c15de2c4888cc54af84882e5495b7fbf66be9ccffec7489f6')
+    client = fiscal.FiscalClient(a1,'test-password','nfce-sp')
+    try:
+        adapter = client.session.get_adapter(fiscal.SP_STATUS)
+        assert adapter is not client.session.get_adapter(fiscal.NATIONAL)
+        assert adapter.ssl_context.verify_mode == ssl.CERT_REQUIRED and adapter.ssl_context.check_hostname
+        import hashlib
+        assert pin in {hashlib.sha256(data).digest() for data in adapter.ssl_context.get_ca_certs(binary_form=True)}
+    finally:
+        client.close()
+
+
+def test_tampered_public_ca_bundle_rejected(monkeypatch):
+    from unittest.mock import Mock
+    from pathlib import Path
+    original = Path.read_bytes
+    def replaced(path):
+        data = original(path)
+        if path.name == 'sefaz-sp-ca.pem':
+            # Missing a pinned certificate is rejected before it enters SSL trust.
+            return data[:data.index(b'-----END CERTIFICATE-----')+len(b'-----END CERTIFICATE-----')]
+        return data
+    monkeypatch.setattr(Path,'read_bytes',replaced)
+    context = Mock()
+    with pytest.raises(fiscal.RecoveryError) as error:
+        fiscal.load_sp_server_trust(context)
+    assert error.value.code == 'ca_bundle'
+    context.load_verify_locations.assert_not_called()
