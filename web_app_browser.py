@@ -1,9 +1,19 @@
 import re
+import os
 from pathlib import Path
 
 from flask import Flask, Response, jsonify, render_template, request
 
 app = Flask(__name__, template_folder='templates', static_folder='static')
+
+from services.sefaz_routes import FiscalRequest, blueprint as sefaz_blueprint
+app.request_class = FiscalRequest
+app.register_blueprint(sefaz_blueprint)
+
+# Enable only behind a trusted single reverse proxy (e.g. Render).
+if os.environ.get('OMNIXML_TRUST_PROXY') == '1':
+    from werkzeug.middleware.proxy_fix import ProxyFix
+    app.wsgi_app = ProxyFix(app.wsgi_app, x_for=0, x_proto=1, x_host=0, x_port=0, x_prefix=0)
 
 INLINE_SCRIPT_RE = re.compile(r'<script(?![^>]*\bsrc=)[^>]*>(?P<body>.*?)</script>', re.IGNORECASE | re.DOTALL)
 INLINE_STYLE_RE = re.compile(r'<style[^>]*>(?P<body>.*?)</style>', re.IGNORECASE | re.DOTALL)

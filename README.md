@@ -200,3 +200,7 @@ As prioridades técnicas e fiscais atuais incluem:
 O OmniXML é uma ferramenta de apoio à auditoria fiscal. O sistema diferencia **erro**, **inconsistência**, **alerta** e **informação** sempre que possível.
 
 Uma heurística ou combinação tributária atípica não deve ser interpretada automaticamente como infração fiscal. A conclusão final deve considerar o XML original, eventos oficiais, escrituração e análise profissional aplicável.
+
+### Recuperação de XMLs com certificado A1
+
+A área `/downloads` recupera NF-e pela distribuição nacional (conforme permissão do certificado) e NFC-e/SP pelo SAE, com consulta de situação e `protNFe` real. Download individual ou ZIP somente com XMLs finais. Outras UFs de NFC-e e outros modelos ainda não estão implementados. Essa área opcional usa um backend protegido; a auditoria permanece local no navegador. Consulte [cobertura, configuração e privacidade](docs/RECUPERACAO_XML.md).

@@ -1,0 +1,169 @@
+"""Synthetic fiscal data only; no real certificates or SEFAZ requests."""
+import base64
+import gzip
+from datetime import datetime, timedelta, timezone
+
+import pytest
+from lxml import etree
+
+from services import sefaz_download as fiscal
+
+
+def key(model='65', uf='35'):
+    initial = uf + '2609' + '12345678000195' + model + '002' + '000029794' + '1' + '00114687'
+    total = sum(int(c)*(2+i%8) for i,c in enumerate(reversed(initial)))
+    check = 11-total%11
+    return initial + str(0 if check >= 10 else check)
+
+
+def note_and_protocol(k=None):
+    k = k or key()
+    note = fiscal.parse_xml(f'''<NFe xmlns="{fiscal.NS}"><infNFe Id="NFe{k}" versao="4.00"><ide><mod>{k[20:22]}</mod><tpAmb>1</tpAmb></ide></infNFe><Signature xmlns="{fiscal.DS}"><SignedInfo><Reference URI="#NFe{k}"><DigestValue>c3ludGhldGlj</DigestValue></Reference></SignedInfo><SignatureValue>c3ludGhldGlj</SignatureValue></Signature></NFe>'''.encode())
+    protocol = fiscal.parse_xml(f'''<protNFe xmlns="{fiscal.NS}" versao="4.00"><infProt><tpAmb>1</tpAmb><verAplic>TEST</verAplic><chNFe>{k}</chNFe><dhRecbto>2026-09-01T00:00:00-03:00</dhRecbto><nProt>135260000000001</nProt><digVal>c3ludGhldGlj</digVal><cStat>100</cStat><xMotivo>Autorizado</xMotivo></infProt></protNFe>'''.encode())
+    return note, protocol
+
+
+def envelope(name, fields, children=()):
+    root = fiscal.message(name,'1.00',fields)
+    root.extend(children)
+    return etree.tostring(root)
+
+
+@pytest.mark.parametrize('model,uf,provider',[('65','35','nfce-sp'),('55','35','nfe-national'),('55','13','nfe-national'),('55','53','nfe-national')])
+def test_supported_keys(model,uf,provider):
+    assert fiscal.key_validate(key(model,uf)) == (key(model,uf),provider)
+
+
+@pytest.mark.parametrize('value',['','1'*44,key()[:-1]+'9',key('65','33'),key('57'),key('55','99'),'١'*44])
+def test_invalid_or_unsupported_keys(value):
+    with pytest.raises(fiscal.RecoveryError):
+        fiscal.key_validate(value)
+
+
+def test_processed_preserves_note_and_real_protocol():
+    note, protocol = note_and_protocol()
+    result = fiscal.parse_xml(fiscal.processed(note,protocol,key(),'135260000000001'))
+    assert result.tag == '{%s}nfeProc' % fiscal.NS
+    assert len(result) == 2
+    assert etree.tostring(result[0]) == etree.tostring(note)
+    assert etree.tostring(result[1]) == etree.tostring(protocol)
+
+
+@pytest.mark.parametrize('name,value',[('chNFe','0'*44),('tpAmb','2'),('cStat','101'),('digVal','different'),('nProt','')])
+def test_divergent_protocol_rejected(name,value):
+    note,protocol = note_and_protocol()
+    protocol.find('.//{%s}%s' % (fiscal.NS,name)).text = value
+    with pytest.raises(fiscal.RecoveryError):
+        fiscal.processed(note,protocol,key())
+
+
+def test_sae_protocol_must_match():
+    note,protocol = note_and_protocol()
+    with pytest.raises(fiscal.RecoveryError):
+        fiscal.processed(note,protocol,key(),'wrong')
+
+
+@pytest.mark.parametrize('xml',[b'<!DOCTYPE a [<!ENTITY e "secret">]><a>&e;</a>',b'<!DOCTYPE a SYSTEM "file:///etc/passwd"><a/>',b'<broken',b'\x00'])
+def test_xml_rejects_dtd_entities_and_malformed(xml):
+    with pytest.raises(fiscal.RecoveryError):
+        fiscal.parse_xml(xml)
+
+
+def test_escaped_soap_return():
+    payload = envelope('retConsSitNFe',{'cStat':'100'})
+    root = etree.Element('wrapper'); root.text = payload.decode()
+    assert fiscal.field(fiscal.returned(etree.tostring(root),'retConsSitNFe'),'cStat') == '100'
+
+
+def test_distribution_complete_note_and_summary():
+    k = key('55')
+    note,protocol = note_and_protocol(k)
+    result = fiscal.processed(note,protocol,k)
+    batch = etree.Element('{%s}loteDistDFeInt' % fiscal.NS)
+    document = etree.SubElement(batch,'{%s}docZip' % fiscal.NS)
+    document.text = base64.b64encode(gzip.compress(result)).decode()
+    data = envelope('retDistDFeInt',{'cStat':'138','xMotivo':'Localizado'},[batch])
+    output,code,_ = fiscal.distribution_result(data,k)
+    assert code == '138' and fiscal.parse_xml(output)[0].tag.endswith('NFe')
+    document.text = base64.b64encode(gzip.compress(f'<resNFe xmlns="{fiscal.NS}"/>'.encode())).decode()
+    with pytest.raises(fiscal.RecoveryError) as error:
+        fiscal.distribution_result(envelope('retDistDFeInt',{'cStat':'138'},[batch]),k)
+    assert error.value.code == 'summary'
+
+
+def test_compressed_size_limit(monkeypatch):
+    monkeypatch.setattr(fiscal,'MAX_RESPONSE',100)
+    with pytest.raises(fiscal.RecoveryError):
+        fiscal.unzip_document(base64.b64encode(gzip.compress(b'x'*1000)).decode())
+
+
+@pytest.mark.parametrize('status',['137','656'])
+def test_distribution_cooldown(status):
+    with pytest.raises(fiscal.RecoveryError) as error:
+        fiscal.distribution_result(envelope('retDistDFeInt',{'cStat':status,'xMotivo':'Pausa'}),key('55'))
+    assert error.value.cooldown
+
+
+def test_sp_recover_and_cancelled_status():
+    note,protocol = note_and_protocol()
+    sae = etree.Element('{%s}proc' % fiscal.NS)
+    wrapper = etree.SubElement(sae,'{%s}nfeProc' % fiscal.NS)
+    etree.SubElement(wrapper,'{%s}nProt' % fiscal.NS).text = '135260000000001'
+    wrapper.append(note)
+    class Fake:
+        def query(self,endpoint,operation,message,version,uf):
+            if endpoint == fiscal.SP_STATUS:
+                assert fiscal.field(message,'chNFe') == key()
+                return envelope('retConsSitNFe',{'cStat':'101','xMotivo':'Cancelada'},[protocol])
+            assert endpoint == fiscal.SP_DOWNLOAD
+            return envelope('retNfceDownloadXML',{'cStat':'200'},[sae])
+    output,code,reason = fiscal.recover(Fake(),key(),'nfce-sp','12345678000195','SP')
+    assert code == '101' and 'CANCELADA' in reason
+    assert fiscal.parse_xml(output).tag.endswith('nfeProc')
+    output,_,_ = fiscal.recover(Fake(),key(),'nfce-sp','12345678000195','SP',True)
+    assert output is None
+
+
+def test_national_uses_certificate_uf_not_issuer_uf():
+    class Fake:
+        def query(self,endpoint,operation,message,version,uf):
+            assert endpoint == fiscal.NATIONAL
+            assert fiscal.field(message,'cUFAutor') == '13'
+            assert fiscal.field(message,'CNPJ') == '12345678000195'
+            assert message.findtext('{%s}consChNFe/{%s}chNFe' % (fiscal.NS,fiscal.NS)) == key('55')
+            return envelope('retDistDFeInt',{'cStat':'137'})
+    with pytest.raises(fiscal.RecoveryError):
+        fiscal.recover(Fake(),key('55'),'nfe-national','12345678000195','AM')
+
+
+@pytest.fixture(scope='module')
+def a1():
+    from cryptography import x509
+    from cryptography.hazmat.primitives import hashes, serialization
+    from cryptography.hazmat.primitives.asymmetric import rsa
+    from cryptography.hazmat.primitives.serialization.pkcs12 import serialize_key_and_certificates
+    from cryptography.x509.oid import NameOID,ObjectIdentifier
+    private = rsa.generate_private_key(public_exponent=65537,key_size=2048)
+    name = x509.Name([x509.NameAttribute(NameOID.COMMON_NAME,'SYNTHETIC TEST')])
+    now = datetime.now(timezone.utc)
+    cert = (x509.CertificateBuilder().subject_name(name).issuer_name(name).public_key(private.public_key())
+            .serial_number(1).not_valid_before(now-timedelta(days=1)).not_valid_after(now+timedelta(days=1))
+            .add_extension(x509.SubjectAlternativeName([x509.OtherName(ObjectIdentifier('2.16.76.1.3.3'),b'\x0c\x0e12345678000195')]),critical=False)
+            .sign(private,hashes.SHA256()))
+    return serialize_key_and_certificates(b'test',private,cert,None,serialization.BestAvailableEncryption(b'test-password'))
+
+
+def test_a1_extracts_cnpj_and_rejects_wrong_password(a1):
+    assert fiscal.certificate_cnpj(a1,'test-password') == '12345678000195'
+    with pytest.raises(fiscal.RecoveryError):
+        fiscal.certificate_cnpj(a1,'wrong')
+
+
+def test_transport_blocks_arbitrary_destinations(a1):
+    client = fiscal.FiscalClient(a1,'test-password')
+    try:
+        for url in ['http://nfce.fazenda.sp.gov.br/','https://example.com/','https://nfce.fazenda.sp.gov.br:8443/']:
+            with pytest.raises(fiscal.RecoveryError):
+                client.session.get(url)
+    finally:
+        client.close()
