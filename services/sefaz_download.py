@@ -8,6 +8,7 @@ import ssl
 import time
 from datetime import datetime, timezone
 from urllib.parse import urlsplit
+from pathlib import Path
 
 from lxml import etree
 
@@ -171,8 +172,36 @@ def distribution_result(data, key):
     raise RecoveryError('A SEFAZ retornou resumo/eventos, sem XML completo. Confira a permissão e a manifestação no seu sistema fiscal. Nenhum evento foi enviado.', 'summary')
 
 
+def load_sp_server_trust(context):
+    """Pinned public CAs published by SEFAZ/SP, never from a user's A1."""
+    from cryptography import x509
+    from cryptography.hazmat.primitives import hashes
+    bundle = (Path(__file__).resolve().parents[1] / 'certs' / 'sefaz-sp-ca.pem').read_bytes()
+    certs = x509.load_pem_x509_certificates(bundle)
+    pins = {
+        '8e30f7f0b678ca1440a94a5be416bed9ae5aff7f0f2e08d4bbe28af2c8eb8660',
+        '8606539037b8ff9d1eb2e8831312cbc667c824e9e5aa2dbb326172446f441e27',
+        '6e0bff069a26994c15de2c4888cc54af84882e5495b7fbf66be9ccffec7489f6',
+        '169cbf0547f3dfc4e63e4af9e0255a76037778ff5b8f4a536abdff3a91dfc3c5',
+    }
+    if len(certs) != len(pins) or {c.fingerprint(hashes.SHA256()).hex() for c in certs} != pins:
+        raise RecoveryError('A cadeia pública SEFAZ/SP não corresponde à versão conferida.', 'ca_bundle')
+    now = datetime.now(timezone.utc)
+    for cert in certs:
+        if not cert.extensions.get_extension_for_class(x509.BasicConstraints).value.ca:
+            raise RecoveryError('Certificado da cadeia pública não é uma CA.', 'ca_bundle')
+        if not cert.not_valid_before_utc <= now <= cert.not_valid_after_utc:
+            raise RecoveryError('A cadeia pública SEFAZ/SP está fora da validade.', 'ca_bundle')
+    root = next(c for c in certs if c.subject == c.issuer)
+    root.verify_directly_issued_by(root)
+    for cert in certs:
+        if cert != root:
+            cert.verify_directly_issued_by(root)
+    context.load_verify_locations(cadata=bundle.decode('ascii'))
+
+
 class FiscalClient:
-    def __init__(self, data, password):
+    def __init__(self, data, password, provider=None):
         self.stage = "a1_tls"
         from requests import Session
         from requests_pkcs12 import Pkcs12Adapter
@@ -216,7 +245,13 @@ class FiscalClient:
             adapter.ssl_context.load_verify_locations(cafile=where())
             adapter.ssl_context.verify_mode = ssl.CERT_REQUIRED
             adapter.ssl_context.check_hostname = True
-            self.session.mount('https://',adapter)
+            if provider == 'nfce-sp':
+                load_sp_server_trust(adapter.ssl_context)
+                self.session.mount('https://nfce.fazenda.sp.gov.br/',adapter)
+            elif provider == 'nfe-national':
+                self.session.mount('https://www1.nfe.fazenda.gov.br/',adapter)
+            else:
+                self.session.mount('https://',adapter)
         except Exception:
             self.session.close()
             raise

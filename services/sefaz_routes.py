@@ -153,7 +153,7 @@ def download_xml():
         history.append(now)
         client = None
         try:
-            client = FiscalClient(data,password)
+            client = FiscalClient(data,password,provider)
             xml, code, reason = recover(client,key,provider,cnpj,uf,action == 'status')
         except RecoveryError as exc:
             if exc.cooldown:
