@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Recuperar XMLs • OmniXML</title>
+  <link rel="stylesheet" href="/static/downloads.css">
+  <script defer src="/static/vendor/jszip-3.10.1.min.js"></script>
+  <script defer src="/static/downloads.js"></script>
+</head>
+<body>
+  <header><a href="/">Omni<span>XML</span></a><a class="back" href="/">← Voltar à auditoria</a></header>
+  <main>
+    <div class="intro"><p class="eyebrow">RECUPERAÇÃO FISCAL</p><h1>Seus XMLs, prontos para usar.</h1><p>Consulte por chave com seu A1 e baixe somente o arquivo final com a nota e o protocolo de autorização.</p></div>
+    <section class="coverage" aria-label="Cobertura"><article><h2>NF-e · todas as UFs</h2><p>Distribuição nacional, sujeita à permissão do certificado. O serviço não disponibiliza a própria NF-e ao emitente e pode retornar somente resumo.</p></article><article><h2>NFC-e · São Paulo</h2><p>Download SAE e consulta de situação. Exige A1 do emitente. Outras UFs, CT-e e MDF-e ainda não estão disponíveis.</p></article></section>
+    <p class="privacy">Nesta área, o A1 e a senha são enviados por conexão segura ao servidor para falar com a SEFAZ e são usados apenas nesta requisição, sem guardar o A1 ou a senha. A auditoria continua no seu navegador. Nenhuma manifestação fiscal é enviada.</p>
+    <p id="availability" role="status">Verificando disponibilidade…</p>
+    <form id="recovery-form">
+      <div class="fields">
+        <label>Certificado A1 (.pfx ou .p12)<input id="certificate" type="file" accept=".pfx,.p12" required></label>
+        <label>Senha do certificado<input id="password" type="password" autocomplete="off"></label>
+        <label>UF do titular do certificado<select id="uf" required>{% for name in ufs %}<option value="{{ name }}"{% if name == 'SP' %} selected{% endif %}>{{ name }}</option>{% endfor %}</select></label>
+        <label>Token de acesso do servidor<input id="token" type="password" autocomplete="off" placeholder="Dispensado apenas em localhost"></label>
+      </div>
+      <label>Chaves de acesso<textarea id="keys" rows="5" required placeholder="Cole uma chave de 44 dígitos por linha (máximo 20)."></textarea></label>
+      <p class="hint">Use a UF do titular, mesmo que a nota seja de outro estado. Apenas produção. Não há novas tentativas automáticas.</p>
+      <div class="actions"><button id="download" type="submit">Recuperar XMLs</button><button id="status" type="button" class="secondary">Consultar situação · NFC-e/SP</button><button id="stop" type="button" class="secondary" disabled>Parar após esta consulta</button><button id="clear" type="button" class="secondary">Limpar dados</button></div>
+    </form>
+    <section class="results"><div class="results-heading"><h2>Resultados</h2><button id="zip" type="button" disabled>Baixar XMLs em ZIP</button></div><p id="progress" role="status" aria-live="polite">Nenhuma consulta realizada.</p><div class="table-wrap"><table><thead><tr><th>Chave</th><th>Situação / retorno SEFAZ</th><th>Arquivo final</th></tr></thead><tbody id="results"></tbody></table></div><p class="hint">O ZIP contém somente os XMLs completos recuperados. O protocolo de autorização não comprova a situação atual; veja a consulta de situação, especialmente em notas canceladas. Eventos de cancelamento não são incluídos no XML final.</p></section>
+  </main>
+</body>
+</html>

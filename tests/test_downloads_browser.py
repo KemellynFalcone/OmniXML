@@ -1,0 +1,52 @@
+"""Exercise batch behavior without contacting SEFAZ or loading certificates."""
+import shutil
+import subprocess
+from pathlib import Path
+
+import pytest
+
+
+def test_batch_keeps_only_complete_xml_and_stops_on_cooldown():
+    if not shutil.which('node'):
+        pytest.skip('Node unavailable')
+    source = r'''
+const fs = require('fs'); const vm = require('vm'); const assert = require('assert');
+class Element {
+  constructor(){ this.children=[]; this.events={}; this.value=''; this.files=[]; this.disabled=false; this.textContent=''; }
+  addEventListener(name,fn){this.events[name]=fn;}
+  append(...items){this.children.push(...items);}
+  replaceChildren(...items){this.children=items;}
+  reportValidity(){return true;}
+  click(){}
+}
+const ids=['certificate','password','token','uf','keys','results','progress','availability','download','status','clear','stop','zip','recovery-form'];
+const els=Object.fromEntries(ids.map(id=>[id,new Element()]));
+els.certificate.files=[new Blob(['SYNTHETIC'])]; els.uf.value='SP';
+els.keys.value='1'.repeat(44)+'\n'+'2'.repeat(44)+'\n'+'3'.repeat(44)+'\n'+'4'.repeat(44);
+let calls=0,zipNames=[];
+class Zip { file(name,blob){zipNames.push(name);} async generateAsync(){return new Blob(['ZIP']);} }
+const responseHeaders={get(name){return name==='X-SEFAZ-cStat' ? '100' : encodeURIComponent('<untrusted>');}};
+const context={console,Blob,Map,Set,FormData,URL:{createObjectURL:()=> 'blob:test',revokeObjectURL:()=>{}},JSZip:Zip,
+ document:{getElementById:id=>els[id],createElement:()=>new Element()},window:{addEventListener:()=>{}},
+ fetch:async path=>{
+  if(path.endsWith('capabilities')) return {json:async()=>({enabled:true})};
+  calls++;
+  if(calls===1) return {ok:true,headers:responseHeaders,blob:async()=>new Blob(['<nfeProc/>'])};
+  if(calls===2) return {ok:false,status:422,json:async()=>({error:'Resumo sem XML',code:'summary'})};
+  return {ok:false,status:422,json:async()=>({error:'Pausa',code:'656',stop_batch:true})};
+ }};
+vm.runInNewContext(fs.readFileSync('static/downloads.js','utf8'),context);
+(async()=>{
+ els['recovery-form'].events.submit({preventDefault(){}});
+ for(let i=0;i<30;i++) await Promise.resolve();
+ assert.strictEqual(calls,3,'cooldown must stop before fourth key');
+ assert.strictEqual(els.results.children.length,3);
+ assert.strictEqual(els.results.children[0].children[1].textContent,'100 · <untrusted>');
+ assert.strictEqual(els.results.children[1].children[2].children.length,0);
+ assert.strictEqual(els.zip.disabled,false);
+ await els.zip.events.click();
+ assert.deepStrictEqual(zipNames,['1'.repeat(44)+'-procNFe.xml']);
+ assert.strictEqual(els.download.disabled,false);
+})().catch(error=>{console.error(error);process.exitCode=1;});
+'''
+    subprocess.run(['node','-e',source],cwd=Path(__file__).resolve().parents[1],check=True,capture_output=True,text=True)
