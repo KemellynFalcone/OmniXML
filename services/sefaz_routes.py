@@ -2,6 +2,7 @@
 import hmac
 import io
 import os
+import ssl
 import threading
 import time
 from collections import deque
@@ -70,6 +71,20 @@ def connection_diagnostic(error, stage):
     if isinstance(error, SSLError):
         if 'CERTIFICATE_VERIFY_FAILED' in str(error):
             code, message = 'tls_verify', 'O servidor não conseguiu validar a cadeia TLS do serviço da SEFAZ.'
+            pending, seen, verification = [error], set(), None
+            while pending and len(seen) < 30:
+                item = pending.pop()
+                if id(item) in seen:
+                    continue
+                seen.add(id(item))
+                if isinstance(item, ssl.SSLCertVerificationError):
+                    verification = getattr(item,'verify_code',None)
+                    break
+                pending.extend(value for value in getattr(item,'args',()) if isinstance(value,BaseException))
+                pending.extend(value for value in (getattr(item,'reason',None),getattr(item,'__cause__',None),getattr(item,'__context__',None)) if isinstance(value,BaseException))
+            explanations = {2:'emissor não localizado',9:'certificado ainda não válido',10:'certificado expirado',18:'certificado autoassinado',19:'cadeia com certificado não confiável',20:'emissor não localizado na cadeia de confiança',21:'cadeia de confiança incompleta',62:'nome do servidor divergente'}
+            if isinstance(verification,int) and 0 <= verification <= 999:
+                message += ' Verificação TLS '+str(verification)+': '+explanations.get(verification,'falha de validação')+'.'
         else:
             code, message = 'tls_handshake', 'A negociação TLS com a SEFAZ falhou. O serviço pode ter recusado a conexão ou o certificado cliente.'
     elif isinstance(error, Timeout):

@@ -151,3 +151,15 @@ def test_connection_errors_are_specific_and_redacted(browser,a1,monkeypatch,capl
     if kind == 'http': assert 'HTTP 403' in result.json['error']
     code, message = connection_diagnostic(RuntimeError(secret),'a1_tls')
     assert code == 'a1_tls' and secret not in message
+
+
+def test_verification_code_from_nested_ssl_error_is_safe():
+    import ssl
+    from requests.exceptions import SSLError
+    from urllib3.exceptions import MaxRetryError
+    verification = ssl.SSLCertVerificationError('CERTIFICATE_VERIFY_FAILED SECRET')
+    verification.verify_code = 20
+    error = SSLError(MaxRetryError(None,'SECRET_URL',reason=verification))
+    code, text = routes.connection_diagnostic(error,'wsdl')
+    assert code == 'tls_verify' and 'Verificação TLS 20' in text
+    assert 'SECRET' not in text
