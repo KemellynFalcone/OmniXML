@@ -167,3 +167,33 @@ def test_transport_blocks_arbitrary_destinations(a1):
                 client.session.get(url)
     finally:
         client.close()
+
+
+def test_client_loads_system_and_requests_trust_without_trusting_upload(a1,monkeypatch):
+    import ssl
+    from requests.certs import where
+    from unittest.mock import Mock
+    import requests_pkcs12
+    context = Mock()
+    adapter = Mock(ssl_context=context)
+    monkeypatch.setattr(requests_pkcs12,'Pkcs12Adapter',lambda **kwargs:adapter)
+    client = fiscal.FiscalClient(a1,'test-password')
+    try:
+        context.load_default_certs.assert_called_once_with(ssl.Purpose.SERVER_AUTH)
+        context.load_verify_locations.assert_called_once_with(cafile=where())
+        assert context.verify_mode == ssl.CERT_REQUIRED
+        assert context.check_hostname is True
+    finally:
+        client.close()
+
+
+def test_actual_client_context_requires_hostname_and_trusted_server(a1):
+    import ssl
+    client = fiscal.FiscalClient(a1,'test-password')
+    try:
+        context = client.session.adapters['https://'].ssl_context
+        assert context.verify_mode == ssl.CERT_REQUIRED
+        assert context.check_hostname is True
+        assert context.cert_store_stats()['x509_ca'] > 0
+    finally:
+        client.close()

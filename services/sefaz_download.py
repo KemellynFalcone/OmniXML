@@ -4,6 +4,7 @@ import copy
 import gzip
 import io
 import re
+import ssl
 import time
 from datetime import datetime, timezone
 from urllib.parse import urlsplit
@@ -205,8 +206,20 @@ class FiscalClient:
                     response.close()
         self.session = BoundedSession()
         self.session.trust_env = False
-        adapter = Pkcs12Adapter(pkcs12_data=data, pkcs12_password=password)
-        self.session.mount('https://',adapter)
+        try:
+            adapter = Pkcs12Adapter(pkcs12_data=data, pkcs12_password=password)
+            # The adapter creates a bare SSLContext. Explicitly load the system
+            # store as well as Requests' CA bundle; never use the uploaded A1 as
+            # a source of server trust anchors. No global SSL monkeypatch.
+            adapter.ssl_context.load_default_certs(ssl.Purpose.SERVER_AUTH)
+            from requests.certs import where
+            adapter.ssl_context.load_verify_locations(cafile=where())
+            adapter.ssl_context.verify_mode = ssl.CERT_REQUIRED
+            adapter.ssl_context.check_hostname = True
+            self.session.mount('https://',adapter)
+        except Exception:
+            self.session.close()
+            raise
 
     def close(self):
         self.session.close()

@@ -46,3 +46,5 @@ Execute `python -m pytest -q` e `python -m pip_audit -r requirements-prod.txt`. 
 ### Diagnóstico de falhas de conexão
 
 A tela distingue validação da cadeia TLS, negociação TLS, timeout, erro HTTP (somente código), rede/DNS e contrato SOAP. Informa também a etapa: carregar A1 no TLS, obter WSDL ou executar SOAP. O log registra apenas etapa e categoria fixa (`sefaz_recovery_failure`), sem mensagens brutas de exceção, certificado, senha, token ou envelope SOAP. A falha interrompe as próximas consultas do lote. O diagnóstico não desabilita a validação TLS nem altera automaticamente o certificado ou sua cadeia.
+
+O contexto TLS do A1 carrega explicitamente as autoridades confiáveis do sistema operacional e o bundle CA do Requests. Mantém verificação de cadeia e hostname habilitadas. As CAs incluídas no A1 enviado pelo usuário não são promovidas a autoridades de confiança do servidor. Em falhas de verificação, a interface mostra o código numérico OpenSSL e uma descrição fixa, quando disponível. Essa configuração não garante que toda cadeia publicada pela SEFAZ esteja completa ou confiável: uma CA oficial ausente exige validação e instalação pelo administrador.
