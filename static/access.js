@@ -25,7 +25,8 @@
     finally { button.disabled = button.id === 'access-logout' ? false : authenticated || !configured; }
   }
   el('access-send').addEventListener('click',event => accessAction('code',event.currentTarget));
-  el('access-verify').addEventListener('click',event => accessAction('verify',event.currentTarget));
+  if (el('login-form')) el('login-form').addEventListener('submit', event => { event.preventDefault(); accessAction('verify',el('access-verify')); });
+  else el('access-verify').addEventListener('click',event => accessAction('verify',event.currentTarget));
   el('access-logout').addEventListener('click',event => accessAction('logout',event.currentTarget));
   accessState().catch(() => { el('access-message').textContent = 'Não foi possível verificar o acesso.'; });
 })();
