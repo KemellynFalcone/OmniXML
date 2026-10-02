@@ -54,3 +54,33 @@ def test_failures_do_not_expose_credentials(gmail,monkeypatch,statuses,token):
 def test_gmail_missing_credentials(gmail,monkeypatch):
     monkeypatch.delenv('OMNIXML_GMAIL_REFRESH_TOKEN')
     assert not email_access.configured()
+
+
+@pytest.mark.parametrize('stage,payload,expected',[
+    ('oauth_refresh',{'error':'invalid_grant','error_description':'SECRET private@example.com'},'invalid_grant'),
+    ('oauth_refresh',{'error':'SECRET'},'provider_error'),
+    ('gmail_send',{'error':{'message':'SECRET','errors':[{'reason':'insufficientPermissions'}]}},'insufficientPermissions'),
+    ('gmail_send',{'error':{'errors':[{'reason':'SECRET'}]}},'provider_error'),
+])
+def test_diagnostics_allowlist(gmail,monkeypatch,caplog,stage,payload,expected):
+    from email.message import EmailMessage
+    class Response:
+        status_code=400
+        def json(self): return payload
+    class Token:
+        status_code=200
+        def json(self): return {'access_token':'SECRET'}
+    responses=iter([Response()] if stage=='oauth_refresh' else [Token(),Response()])
+    monkeypatch.setattr('services.gmail_sender.requests.post',lambda *a,**k:next(responses))
+    with pytest.raises(RuntimeError): send_message(EmailMessage())
+    assert f'stage={stage} reason={expected} http_status=400' in caplog.text
+    assert 'SECRET' not in caplog.text and 'private@example.com' not in caplog.text
+
+
+def test_diagnostics_timeout_does_not_log_exception(gmail,monkeypatch,caplog):
+    import requests
+    from email.message import EmailMessage
+    def timeout(*a,**k): raise requests.Timeout('SECRET refresh-token')
+    monkeypatch.setattr('services.gmail_sender.requests.post',timeout)
+    with pytest.raises(RuntimeError): send_message(EmailMessage())
+    assert 'reason=timeout' in caplog.text and 'SECRET' not in caplog.text
