@@ -4,6 +4,7 @@ import sqlite3
 import time
 from contextlib import contextmanager
 from email.utils import parseaddr
+from services import d1_registry
 
 
 def admins():
@@ -17,7 +18,7 @@ def legacy():
 
 
 def enabled():
-    return bool(os.environ.get('OMNIXML_CLIENTS_DATABASE_URL') or os.environ.get('OMNIXML_CLIENTS_DB'))
+    return bool(d1_registry.selected() or os.environ.get('OMNIXML_CLIENTS_DATABASE_URL') or os.environ.get('OMNIXML_CLIENTS_DB'))
 
 
 class PostgresConnection:
@@ -31,6 +32,11 @@ class PostgresConnection:
 
 @contextmanager
 def connection():
+    if d1_registry.selected():
+        db = d1_registry.Connection()
+        db.execute('CREATE TABLE IF NOT EXISTS clients (email TEXT PRIMARY KEY, active INTEGER NOT NULL, created INTEGER NOT NULL)')
+        yield db
+        return
     url = os.environ.get('OMNIXML_CLIENTS_DATABASE_URL')
     if url:
         import psycopg

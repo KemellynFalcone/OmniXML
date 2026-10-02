@@ -50,3 +50,17 @@ XMLs, A1 e senhas continuam no processamento fiscal temporário existente, sem n
 A URL PostgreSQL tem prioridade sobre OMNIXML_CLIENTS_DB. Não há migração automática de um cadastro SQLite existente. Os e-mails em OMNIXML_ALLOWED_EMAILS continuam como exceções gerenciadas pelo Render: para administrar clientes pelo painel, remova os e-mails desses clientes da variável e cadastre-os no painel. O administrador permanece na variável OMNIXML_ADMIN_EMAILS.
 
 Somente a tabela clients (email, active, created) é persistida no Neon. Códigos e sessões continuam no armazenamento temporário de autenticação; XMLs, certificados, senhas fiscais e métricas não são enviados ao Neon. O serviço de banco pode manter logs e backups próprios, conforme sua configuração e política. A conexão exige TLS e tem timeout de 15 segundos. Use o endpoint com pooling para as conexões curtas do aplicativo.
+
+
+## Cloudflare D1 (opção escolhida)
+
+O aplicativo continua no Render. O cadastro usa a API HTTPS do D1 diretamente do servidor; o navegador nunca recebe token ou SQL. Nenhum Worker adicional é necessário.
+
+1. Na Cloudflare, abra D1 e crie `omnixml-clientes`.
+2. Copie o ID da conta e o UUID do banco.
+3. Crie um API Token personalizado com permissão da conta D1 Edit (D1 Write), limitado à conta do OmniXML. Não use Global API Key. A permissão de D1 pode abranger os outros bancos D1 da mesma conta: use conta dedicada caso precise isolar esse escopo.
+4. No Render, configure `OMNIXML_D1_ACCOUNT_ID`, `OMNIXML_D1_DATABASE_ID`, `OMNIXML_D1_API_TOKEN` e `OMNIXML_ADMIN_EMAILS=omnixml@gmail.com`. Preserve as configurações Gmail.
+5. Remova `OMNIXML_CLIENTS_DATABASE_URL` se havia configurado Neon, para evitar confusão. As variáveis D1 têm prioridade; configuração parcial ou falha remota nunca cai silenciosamente para outro banco.
+6. Faça deploy, entre em `/login` e abra `/admin`. A tabela clients é criada automaticamente. Cadastre, valide, bloqueie, reative e remova um cliente de teste. Depois de um deploy, confirme que o cadastro continua presente.
+
+O D1 guarda somente email, active e created. Não há migração automática de registros de outro banco. E-mails em OMNIXML_ALLOWED_EMAILS permanecem exceções do servidor e devem sair dessa variável para serem geridos pelo painel. Códigos e sessões continuam temporários; XML, A1, senha fiscal e monitor não são enviados ao D1. Logs, recuperação e backups do provedor seguem as políticas da Cloudflare. As quotas gratuitas do D1 e da API são aplicáveis; não são ilimitadas. Falhas do D1 retornam erro 503 sem expor token nem resposta do provedor. Bloqueios dependem da consulta ao cadastro a cada validação de sessão, sem cache de autorização.
