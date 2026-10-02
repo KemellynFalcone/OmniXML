@@ -63,3 +63,8 @@ O provedor NFC-e/SP carrega também a raiz ICP-Brasil v10 e a intermediária AC 
 - XML original recebe o mesmo tratamento temporário da requisição fiscal: memória, sem acervo ou banco. Nenhuma manifestação ou autorização é enviada.
 - Referências oficiais: https://dfe-portal.svrs.rs.gov.br/NFCE/Servicos e https://www.sefaz.ba.gov.br/inspetoria-eletronica/icms/documentos-fiscais/nota-fiscal-de-consumidor-eletronica/ .
 - Testes automatizados usam dados sintéticos. Conexão mTLS e retorno real precisam ser validados por UF com certificado e documento legítimos; a tabela distingue integração de validação real.
+
+
+## Recuperar XML perdido nas UFs prioritárias
+
+Consulte [Download de NFC-e por UF](DOWNLOAD_NFCE_UFS.md). A tela distingue download automático de SP, recuperação no portal de GO, orientação administrativa em MT e cobertura ainda não confirmada em MG/PR/MS. Não é necessário enviar XML original para essas orientações; elas não equivalem a download automático.

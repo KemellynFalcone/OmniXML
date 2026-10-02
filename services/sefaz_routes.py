@@ -12,6 +12,7 @@ from flask import Blueprint, Request, Response, current_app, jsonify, render_tem
 from werkzeug.exceptions import RequestEntityTooLarge
 
 from services.email_access import configured, identity
+from services.sefaz_coverage import RECOVERY_PATHS
 
 from services.sefaz_download import (FiscalClient, RecoveryError, UF_CODES, certificate_cnpj,
                                     key_validate, recover, NFCE_STATUS, STATUS_UFS, parse_xml, NS)
@@ -46,14 +47,14 @@ def access_allowed():
 
 @blueprint.get('/downloads')
 def downloads():
-    return render_template('downloads.html',ufs=UF_CODES,status_ufs=STATUS_UFS)
+    return render_template('downloads.html',ufs=UF_CODES,status_ufs=STATUS_UFS,recovery_paths=RECOVERY_PATHS)
 
 
 @blueprint.get('/api/sefaz/capabilities')
 def capabilities():
     return jsonify(nfe='Distribuição nacional: todas as UFs, conforme permissão do certificado.',
                    nfce='Download: SP. Consulta/protocolo: '+', '.join(STATUS_UFS)+'.',
-                   status_ufs=STATUS_UFS,
+                   status_ufs=STATUS_UFS, recovery_paths=RECOVERY_PATHS,
                    other='CT-e, MDF-e e outros modelos ainda não implementados.',
                    enabled=bool(os.environ.get('OMNIXML_SEFAZ_TOKEN')) or configured() or
                            (request.remote_addr in ('127.0.0.1','::1') and request.host.split(':')[0] in ('localhost','127.0.0.1')))
@@ -160,7 +161,7 @@ def download_xml():
     except RequestEntityTooLarge:
         return jsonify(error='Envio excede 3 MB.',code='size'),413
     except RecoveryError as exc:
-        return jsonify(error=str(exc),code=exc.code),400
+        return jsonify(error=str(exc),code=exc.code,recovery=RECOVERY_PATHS.get(key[:2]) if exc.code == 'unsupported' and 'key' in locals() else None),400
     if not _active.acquire(blocking=False):
         return jsonify(error='Outra consulta está em andamento. Aguarde e tente novamente.',code='busy'),429
     try:

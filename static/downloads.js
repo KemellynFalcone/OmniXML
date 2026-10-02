@@ -4,6 +4,7 @@
   const files = new Map();
   const urls = [];
   let running = false, stop = false;
+  let recoveryPaths = {};
   const saveLink = (blob, name) => {
     const url = URL.createObjectURL(blob); urls.push(url);
     const link = document.createElement('a'); link.href = url; link.download = name;
@@ -16,13 +17,16 @@
     el('stop').disabled = !value; el('zip').disabled = value || !files.size;
   };
   async function run(action) {
-    if (running || !el('recovery-form').reportValidity()) return;
+    if (running) return;
+    await availability;
+    if (running) return;
     const certificate = el('certificate').files[0];
-    if (!certificate || certificate.size > 2 * 1024 * 1024) { el('progress').textContent = 'Selecione um A1 de até 2 MB.'; return; }
     const keys = [...new Set(el('keys').value.split(/\r?\n/).map(key => key.replace(/\s/g,'')).filter(Boolean))];
     if (!keys.length || keys.length > 20 || keys.some(key => !/^[0-9]{44}$/.test(key))) {
       el('progress').textContent = 'Informe de 1 a 20 chaves de 44 dígitos, uma por linha.'; return;
     }
+    const needsCertificate = action !== 'download' || keys.some(key => key.slice(20,22) !== '65' || !recoveryPaths[key.slice(0,2)] || recoveryPaths[key.slice(0,2)].mode === 'automatic');
+    if (needsCertificate && (!certificate || certificate.size > 2 * 1024 * 1024)) { el('progress').textContent = 'Selecione um A1 de até 2 MB para consulta ou download automático.'; return; }
     if (action === 'complete' && (keys.length !== 1 || !el('original').files[0] || el('original').files[0].size > 512 * 1024)) { el('progress').textContent = 'Para completar o protocolo, informe uma chave e seu XML original de até 512 KB.'; return; }
     cleanup(); el('results').replaceChildren(); stop = false; busy(true);
     try {
@@ -33,6 +37,21 @@
         const cells = Array.from({length:3}, () => document.createElement('td'));
         cells[0].textContent = key; cells[1].textContent = 'Aguardando SEFAZ…'; cells[2].textContent = '—';
         row.append(...cells); el('results').append(row);
+        const guidance = recoveryPaths[key.slice(0,2)];
+        if (action === 'download' && key.slice(20,22) === '65' && guidance && guidance.mode !== 'automatic') {
+          cells[1].textContent = guidance.title + '. ' + guidance.description;
+          cells[1].className = 'guided-result';
+          const link = document.createElement('a'); link.href = guidance.url;
+          link.target = '_blank'; link.rel = 'noopener noreferrer'; link.className = 'file-link';
+          link.textContent = guidance.link_label;
+          const copy = document.createElement('button'); copy.type = 'button'; copy.className = 'secondary'; copy.textContent = 'Copiar chave';
+          copy.addEventListener('click', async () => {
+            try { await navigator.clipboard.writeText(key); copy.textContent = 'Chave copiada'; }
+            catch (_) { copy.textContent = 'Selecione e copie a chave ao lado'; }
+          });
+          cells[2].replaceChildren(link,copy);
+          continue;
+        }
         const form = new FormData();
         form.append('certificate',certificate); form.append('password',el('password').value);
         if (action === 'complete') form.append('original',el('original').files[0]);
@@ -52,7 +71,7 @@
           }
         } catch (_) { cells[1].textContent = 'Conexão interrompida. Confira o resultado antes de tentar novamente.'; cells[1].className = 'error'; stop = true; }
       }
-      el('progress').textContent = `${stop ? 'Consultas interrompidas.' : 'Consultas concluídas.'} ${files.size} XML(s) completo(s) disponível(is).`;
+      el('progress').textContent = `${stop ? 'Consultas interrompidas.' : 'Processamento concluído.'} ${files.size} XML(s) completo(s) disponível(is).`;
     } finally { busy(false); }
   }
   el('recovery-form').addEventListener('submit',event => { event.preventDefault(); run('download'); });
@@ -69,8 +88,9 @@
     } catch (_) { el('progress').textContent = 'Não foi possível gerar o ZIP. Use os downloads individuais.'; }
     finally { el('zip').disabled = running || !files.size; }
   });
-  fetch('/api/sefaz/capabilities').then(response => response.json()).then(info => {
-    el('availability').textContent = info.enabled ? 'Recuperação disponível. Informe seu A1 e as chaves.' : 'Recuperação desativada no servidor. O administrador precisa configurar o acesso.';
+  const availability = fetch('/api/sefaz/capabilities').then(response => response.json()).then(info => {
+    recoveryPaths = info.recovery_paths || {};
+    el('availability').textContent = info.enabled ? 'Informe as chaves para baixar em SP ou ver o caminho de recuperação da UF. Para consultas automáticas, selecione o A1.' : 'Recuperação desativada no servidor. O administrador precisa configurar o acesso.';
   }).catch(() => { el('availability').textContent = 'Não foi possível verificar a disponibilidade.'; });
   window.addEventListener('pagehide',cleanup);
 })();
