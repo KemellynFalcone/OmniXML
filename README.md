@@ -204,3 +204,7 @@ Uma heurística ou combinação tributária atípica não deve ser interpretada 
 ### Recuperação de XMLs com certificado A1
 
 A área `/downloads` recupera NF-e pela distribuição nacional (conforme permissão do certificado) e NFC-e/SP pelo SAE, com consulta de situação e `protNFe` real. Download individual ou ZIP somente com XMLs finais. Outras UFs de NFC-e e outros modelos ainda não estão implementados. Essa área opcional usa um backend protegido; a auditoria permanece local no navegador. Consulte [cobertura, configuração e privacidade](docs/RECUPERACAO_XML.md).
+
+### Login individual
+
+Acesso com e-mail e senha, liberação pelo painel ADM e links de criação/redefinição de senha. Não depende de códigos ou tokens do Gmail. Integração opcional com reCAPTCHA v2. Configure o primeiro acesso no Render conforme [ACESSO_SENHA.md](docs/ACESSO_SENHA.md).

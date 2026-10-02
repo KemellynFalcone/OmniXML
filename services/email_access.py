@@ -1,37 +1,29 @@
-"""Short-lived email codes and opaque, revocable sessions shared by workers."""
+"""Password login and revocable sessions. Module name retained for imports."""
 import hashlib
 import hmac
 import os
-import re
 import secrets
-import smtplib
 import sqlite3
 import time
-from email.message import EmailMessage
 from contextlib import contextmanager
+from urllib.parse import urlsplit
 
-from flask import Blueprint, current_app, jsonify, request
+import requests
+from flask import Blueprint, jsonify, request, g
+from werkzeug.security import generate_password_hash, check_password_hash
+from services import client_registry as registry, password_store as passwords
 
 blueprint = Blueprint('email_access', __name__)
 COOKIE = 'omnixml_access'
+DUMMY_HASH = generate_password_hash(secrets.token_urlsafe(32))
 
 
 def configured():
-    common = len(os.environ.get('OMNIXML_AUTH_SECRET', '')) >= 32 and all(
-        os.environ.get(k) for k in ('OMNIXML_ALLOWED_EMAILS', 'OMNIXML_EMAIL_FROM'))
-    provider = os.environ.get('OMNIXML_EMAIL_PROVIDER', 'resend')
-    if provider == 'gmail':
-        return common and all(os.environ.get(k) for k in
-            ('OMNIXML_GMAIL_CLIENT_ID', 'OMNIXML_GMAIL_CLIENT_SECRET', 'OMNIXML_GMAIL_REFRESH_TOKEN'))
-    if provider == 'resend':
-        return common and bool(os.environ.get('OMNIXML_RESEND_API_KEY'))
-    return common and provider == 'smtp' and all(os.environ.get(k) for k in
-        ('OMNIXML_SMTP_HOST', 'OMNIXML_SMTP_USER', 'OMNIXML_SMTP_PASSWORD'))
+    return len(os.environ.get('OMNIXML_AUTH_SECRET', '')) >= 32 and registry.enabled() and bool(registry.admins())
 
 
 def allowed(email):
-    from services.client_registry import allowed as client_allowed
-    return client_allowed(email)
+    return registry.allowed(email)
 
 
 def digest(value):
@@ -41,15 +33,16 @@ def digest(value):
 @contextmanager
 def connection():
     db = sqlite3.connect(os.environ.get('OMNIXML_AUTH_DB', '/tmp/omnixml-auth.sqlite3'), timeout=10)
-    db.execute('CREATE TABLE IF NOT EXISTS codes (email TEXT PRIMARY KEY, value TEXT, expires INTEGER, attempts INTEGER, sent INTEGER)')
-    db.execute('CREATE TABLE IF NOT EXISTS sessions (value TEXT PRIMARY KEY, email TEXT, expires INTEGER)')
+    db.execute('CREATE TABLE IF NOT EXISTS password_sessions (value TEXT PRIMARY KEY, email TEXT, version TEXT, expires INTEGER)')
     db.execute('CREATE TABLE IF NOT EXISTS rates (value TEXT PRIMARY KEY, start INTEGER, count INTEGER)')
     try:
         with db:
             now = int(time.time())
-            db.execute('DELETE FROM codes WHERE expires<=?', (now,))
-            db.execute('DELETE FROM sessions WHERE expires<=?', (now,))
+            db.execute('DELETE FROM password_sessions WHERE expires<=?', (now,))
             db.execute('DELETE FROM rates WHERE start<?', (now-3600,))
+            # Remove obsolete codes and old sessions from an existing installation.
+            db.execute('DROP TABLE IF EXISTS codes')
+            db.execute('DROP TABLE IF EXISTS sessions')
         with db:
             yield db
     finally:
@@ -57,54 +50,54 @@ def connection():
 
 
 def secure_origin():
-    from urllib.parse import urlsplit
     origin = urlsplit(request.headers.get('Origin', ''))
     return request.is_secure and origin.scheme == request.scheme and origin.netloc == request.host
 
 
 def identity():
-    if not configured():
+    # Reuse authorization only within this HTTP request, never across requests.
+    if not hasattr(g, '_omnixml_identity'):
+        g._omnixml_identity = _identity()
+    return g._omnixml_identity
+
+
+def _identity():
+    if not configured() or not request.is_secure:
         return None
     token = request.cookies.get(COOKIE, '')
-    if len(token) > 128 or not token:
+    if not token or len(token) > 128:
         return None
     with connection() as db:
-        row = db.execute('SELECT email FROM sessions WHERE value=? AND expires>?', (digest(token), int(time.time()))).fetchone()
-    return row[0] if row and allowed(row[0]) else None
+        row = db.execute('SELECT email,version FROM password_sessions WHERE value=? AND expires>?', (digest(token), int(time.time()))).fetchone()
+    if not row or not allowed(row[0]):
+        return None
+    credential = passwords.credential(row[0])
+    return row[0] if credential and credential[0] and hmac.compare_digest(credential[1], row[1]) else None
 
 
-def send_code(email, code):
-    if os.environ.get('OMNIXML_EMAIL_PROVIDER', 'resend') == 'resend':
-        import requests
-        response = requests.post('https://api.resend.com/emails',
-            headers={'Authorization':'Bearer '+os.environ['OMNIXML_RESEND_API_KEY']},
-            json={'from':os.environ['OMNIXML_EMAIL_FROM'], 'to':[email],
-                  'subject':'Seu código de acesso ao OmniXML',
-                  'text':f'Seu código de acesso é: {code}\nVálido por 10 minutos e para um único uso. Se não solicitou, ignore este e-mail. Não compartilhe o código.'},
-            timeout=15, allow_redirects=False)
-        if response.status_code not in (200, 201):
-            raise RuntimeError('email provider rejected request')
-        return
-    message = EmailMessage()
-    message['From'] = os.environ['OMNIXML_EMAIL_FROM']
-    message['To'] = email
-    message['Subject'] = 'Seu código de acesso ao OmniXML'
-    message.set_content(f'Seu código de acesso é: {code}\n\nVálido por 10 minutos e para um único uso. Se não solicitou, ignore este e-mail. Não compartilhe o código.')
-    if os.environ.get('OMNIXML_EMAIL_PROVIDER', 'resend') == 'gmail':
-        from services.gmail_sender import send_message
-        send_message(message)
-        return
-    host = os.environ['OMNIXML_SMTP_HOST']
-    port = int(os.environ.get('OMNIXML_SMTP_PORT', '587'))
-    import ssl
-    context = ssl.create_default_context()
-    transport = smtplib.SMTP_SSL if port == 465 else smtplib.SMTP
-    kwargs = {'context': context} if port == 465 else {}
-    with transport(host, port, timeout=15, **kwargs) as smtp:
-        if port != 465:
-            smtp.starttls(context=context)
-        smtp.login(os.environ['OMNIXML_SMTP_USER'], os.environ['OMNIXML_SMTP_PASSWORD'])
-        smtp.send_message(message)
+def captcha_keys():
+    return os.environ.get('OMNIXML_RECAPTCHA_SITE_KEY', ''), os.environ.get('OMNIXML_RECAPTCHA_SECRET_KEY', '')
+
+
+def captcha_site_key():
+    site, secret = captcha_keys()
+    return site if site and secret else ''
+
+
+def captcha_valid(token):
+    site, secret = captcha_keys()
+    if not site and not secret:
+        return True
+    if not site or not secret or not isinstance(token, str) or not 1 <= len(token) <= 4096:
+        return False
+    try:
+        response = requests.post('https://www.google.com/recaptcha/api/siteverify',
+                                 data={'secret':secret, 'response':token}, timeout=(5, 10), allow_redirects=False)
+        result = response.json() if response.status_code == 200 else {}
+        return (result.get('success') is True and not result.get('error-codes')
+                and result.get('hostname') == urlsplit(request.host_url).hostname)
+    except (requests.RequestException, ValueError, TypeError, AttributeError):
+        return False
 
 
 def rate_limit(db, bucket, limit):
@@ -119,86 +112,75 @@ def rate_limit(db, bucket, limit):
     return True
 
 
+def attempt(email=''):
+    with connection() as db:
+        db.execute('BEGIN IMMEDIATE')
+        return (rate_limit(db, digest('login-ip:'+(request.remote_addr or 'unknown')), 60)
+                and rate_limit(db, digest('login-email:'+email), 10))
+
+
 @blueprint.before_request
 def limit_body():
-    request.max_content_length = 4096
+    request.max_content_length = 8192
 
 
 @blueprint.get('/api/access/session')
 def session_state():
     email = identity()
-    from services.client_registry import admins
-    return jsonify(configured=configured(), authenticated=bool(email), email=email, admin=email in admins())
+    return jsonify(configured=configured(), authenticated=bool(email), email=email, admin=email in registry.admins())
 
 
-@blueprint.post('/api/access/code')
-def request_code():
-    if not configured() or not secure_origin():
-        return jsonify(error='Acesso por e-mail indisponível. Contate o administrador.'), 503
+@blueprint.post('/api/access/login')
+def login():
+    if not secure_origin():
+        return jsonify(error='Origem inválida.'), 403
+    if not configured():
+        return jsonify(error='Acesso indisponível. Contate o administrador.'), 503
     data = request.get_json(silent=True)
     if not isinstance(data, dict):
         return jsonify(error='Requisição inválida.'), 400
     email = str(data.get('email', '')).strip().lower()
-    if len(email) > 254 or not re.fullmatch(r'[^\s@]+@[^\s@]+\.[^\s@]+', email):
-        return jsonify(error='Informe um e-mail válido.'), 400
-    now = int(time.time())
-    code = f'{secrets.randbelow(1000000):06d}'
-    with connection() as db:
-        db.execute('BEGIN IMMEDIATE')
-        db.execute('DELETE FROM sessions WHERE expires<=?', (now,))
-        db.execute('DELETE FROM codes WHERE expires<=?', (now,))
-        db.execute('DELETE FROM rates WHERE start<?', (now-3600,))
-        ip = digest('ip:' + (request.remote_addr or 'unknown'))
-        if not rate_limit(db, ip, 30) or not rate_limit(db, digest('email:'+email), 5):
-            return jsonify(error='Limite de solicitações atingido. Aguarde antes de tentar novamente.'), 429, {'Retry-After':'3600'}
-        resend_bucket = digest('resend:'+email)
-        row = db.execute('SELECT start FROM rates WHERE value=?', (resend_bucket,)).fetchone()
-        if row and now-row[0] < 60:
-            return jsonify(error='Aguarde um minuto antes de pedir outro código.'), 429, {'Retry-After':str(60-(now-row[0]))}
-        # Identical cooldown for registered and unknown emails prevents
-        # membership discovery through the second request's HTTP status.
-        db.execute('INSERT OR REPLACE INTO rates VALUES (?,?,1)', (resend_bucket, now))
-        if allowed(email):
-            db.execute('INSERT OR REPLACE INTO codes VALUES (?,?,?,0,?)', (email, digest(email+':'+code), now+600, now))
-    if allowed(email):
-        try:
-            send_code(email, code)
-        except Exception:
-            current_app.logger.warning('omnixml_email_delivery_failed; check email provider configuration')
-            with connection() as db:
-                db.execute('DELETE FROM codes WHERE email=? AND value=?', (email, digest(email+':'+code)))
-            # Do not expose SMTP credentials or account membership.
-    return jsonify(message='Se o e-mail estiver liberado, você receberá um código. Confira também o spam.')
-
-
-@blueprint.post('/api/access/verify')
-def verify_code():
-    if not configured() or not secure_origin():
-        return jsonify(error='Acesso por e-mail indisponível.'), 503
-    data = request.get_json(silent=True)
-    if not isinstance(data, dict):
-        return jsonify(error='Requisição inválida.'), 400
-    email = str(data.get('email', '')).strip().lower()
-    code = str(data.get('code', ''))
-    now = int(time.time())
+    password = data.get('password', '')
+    if len(email) > 254 or not isinstance(password, str) or len(password) > passwords.MAX_PASSWORD:
+        return jsonify(error='E-mail ou senha inválidos.'), 401
+    if not attempt(email):
+        return jsonify(error='Muitas tentativas. Aguarde antes de tentar novamente.'), 429, {'Retry-After':'3600'}
+    if not captcha_valid(data.get('captcha', '')):
+        return jsonify(error='Não foi possível validar a proteção. Marque “Não sou um robô” e tente novamente.'), 400
+    passwords.bootstrap(email)
+    row = passwords.credential(email)
+    valid = check_password_hash(row[0] if row and row[0] else DUMMY_HASH, password)
+    if not valid or not row or not allowed(email):
+        return jsonify(error='E-mail ou senha inválidos.'), 401
     token = secrets.token_urlsafe(32)
-    success = False
     with connection() as db:
-        db.execute('BEGIN IMMEDIATE')
-        if not rate_limit(db, digest('verify:'+(request.remote_addr or 'unknown')), 60):
-            return jsonify(error='Muitas tentativas. Aguarde antes de tentar novamente.'), 429
-        row = db.execute('SELECT value,expires,attempts FROM codes WHERE email=?', (email,)).fetchone()
-        if row and row[1] > now and row[2] < 5 and allowed(email):
-            db.execute('UPDATE codes SET attempts=attempts+1 WHERE email=?', (email,))
-            if re.fullmatch(r'[0-9]{6}', code) and hmac.compare_digest(row[0], digest(email+':'+code)):
-                db.execute('DELETE FROM codes WHERE email=?', (email,))
-                db.execute('INSERT INTO sessions VALUES (?,?,?)', (digest(token), email, now+28800))
-                success = True
-    if not success:
-        return jsonify(error='Código inválido ou expirado. Solicite outro código se necessário.'), 400
+        db.execute('INSERT INTO password_sessions VALUES (?,?,?,?)', (digest(token), email, row[1], int(time.time())+28800))
     response = jsonify(authenticated=True, email=email)
     response.set_cookie(COOKIE, token, max_age=28800, secure=True, httponly=True, samesite='Strict', path='/')
     return response
+
+
+@blueprint.post('/api/access/activate')
+def activate():
+    if not secure_origin():
+        return jsonify(error='Origem inválida.'), 403
+    if not configured():
+        return jsonify(error='Acesso indisponível.'), 503
+    data = request.get_json(silent=True)
+    if not isinstance(data, dict):
+        return jsonify(error='Requisição inválida.'), 400
+    token, password = data.get('invite', ''), data.get('password', '')
+    if not isinstance(token, str) or not 1 <= len(token) <= 128:
+        return jsonify(error='Link inválido, usado ou expirado. Solicite outro ao administrador.'), 400
+    if not attempt('activation:'+token):
+        return jsonify(error='Muitas tentativas. Aguarde antes de tentar novamente.'), 429
+    if not passwords.valid_password(password):
+        return jsonify(error='Use uma senha de 15 a 128 caracteres. Uma frase longa é uma boa opção.'), 400
+    if not captcha_valid(data.get('captcha', '')):
+        return jsonify(error='Valide a proteção “Não sou um robô” e tente novamente.'), 400
+    if not isinstance(token, str) or len(token) > 128 or not passwords.activate(token, password):
+        return jsonify(error='Link inválido, usado ou expirado. Solicite outro ao administrador.'), 400
+    return jsonify(message='Senha salva. Entre com seu e-mail e sua senha.')
 
 
 @blueprint.post('/api/access/logout')
@@ -206,7 +188,7 @@ def logout():
     if not secure_origin():
         return jsonify(error='Origem inválida.'), 403
     with connection() as db:
-        db.execute('DELETE FROM sessions WHERE value=?', (digest(request.cookies.get(COOKIE, '')),))
+        db.execute('DELETE FROM password_sessions WHERE value=?', (digest(request.cookies.get(COOKIE, '')),))
     response = jsonify(authenticated=False)
     response.delete_cookie(COOKIE, secure=True, httponly=True, samesite='Strict')
     return response

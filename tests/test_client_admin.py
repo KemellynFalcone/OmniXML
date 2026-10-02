@@ -4,10 +4,9 @@ from web_app_browser import app
 
 
 def login(client,email,monkeypatch):
-    sent=[]
-    monkeypatch.setattr(email_access,'send_code',lambda e,c:sent.append(c))
-    assert post(client,'code',{'email':email}).status_code==200
-    assert post(client,'verify',{'email':email,'code':sent[-1]}).status_code==200
+    from test_email_access import seed, PASSWORD
+    seed(email)
+    assert post(client,'login',{'email':email,'password':PASSWORD}).status_code==200
 
 
 def setup_registry(tmp_path,monkeypatch):
@@ -51,8 +50,8 @@ def test_admin_origin_bootstrap_and_storage_guard(client,tmp_path,monkeypatch):
     assert change(client,'admin@example.com','delete').status_code==400
     assert change(client,'bad','add').status_code==400
     monkeypatch.delenv('OMNIXML_CLIENTS_DB')
-    assert change(client,'client@example.com','add').status_code==503
-    assert not client.get('/api/admin/clients',base_url='https://localhost').json['editable']
+    assert not client.get('/api/access/session',base_url='https://localhost').json['configured']
+    assert change(client,'client@example.com','add').status_code==401
 
 
 def test_registry_survives_connection_recreation(client,tmp_path,monkeypatch):

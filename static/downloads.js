@@ -13,7 +13,7 @@
   const cleanup = () => { urls.splice(0).forEach(url => URL.revokeObjectURL(url)); files.clear(); el('zip').disabled = true; };
   const busy = value => {
     running = value;
-    ['download','status','complete','original','clear','certificate','password','token','uf','keys'].forEach(id => { el(id).disabled = value; });
+    ['download','status','complete','original','clear','certificate','password','uf','keys'].forEach(id => { el(id).disabled = value; });
     el('stop').disabled = !value; el('zip').disabled = value || !files.size;
   };
   async function run(action) {
@@ -56,7 +56,7 @@
         form.append('certificate',certificate); form.append('password',el('password').value);
         if (action === 'complete') form.append('original',el('original').files[0]);
         form.append('key',key); form.append('uf',el('uf').value); form.append('action',action);
-        const headers = el('token').value ? {Authorization:'Bearer '+el('token').value} : {};
+        const headers = {};
         try {
           const response = await fetch('/api/sefaz/recover',{method:'POST',body:form,headers,credentials:'same-origin'});
           if (!response.ok) {

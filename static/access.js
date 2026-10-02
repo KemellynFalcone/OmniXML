@@ -1,65 +1,56 @@
 'use strict';
 (() => {
   const el = id => document.getElementById(id);
-  let authenticated = false, configured = false, codeStep = false, busy = false, resendAt = 0;
-  function updateResend() {
-    const button = el('access-resend');
-    if (!button) return;
-    const seconds = Math.max(0, Math.ceil((resendAt-Date.now())/1000));
-    button.disabled = busy || !configured || seconds > 0;
-    button.textContent = seconds ? `Reenviar código em ${seconds}s` : 'Reenviar código';
+  const activating = document.body.dataset.page === 'activate';
+  // Keep the invitation out of URL logs, referrers and browser history.
+  const invite = activating ? window.location.hash.slice(1) : '';
+  if (activating) window.history.replaceState(null, '', '/activate');
+  let busy = false, widget = null;
+  const captcha = el('access-captcha');
+  if (captcha) {
+    el('access-submit').disabled = true;
+    window.omniCaptchaReady = () => {
+      widget = window.grecaptcha.render(captcha, {
+        sitekey: captcha.dataset.sitekey,
+        size: window.innerWidth < 380 ? 'compact' : 'normal',
+        callback: () => { el('access-submit').disabled = busy; },
+        'expired-callback': () => { el('access-submit').disabled = true; },
+        'error-callback': () => { el('access-message').textContent = 'Proteção indisponível. Atualize a página e tente novamente.'; el('access-submit').disabled = true; }
+      });
+    };
+    const script = document.createElement('script');
+    script.src = 'https://www.google.com/recaptcha/api.js?onload=omniCaptchaReady&render=explicit&hl=pt-BR';
+    script.async = true;
+    script.onerror = () => { el('access-message').textContent = 'Não foi possível carregar a proteção. Verifique a conexão e tente novamente.'; };
+    document.head.append(script);
   }
-  function cooldown(seconds=60) { resendAt = Date.now()+seconds*1000; updateResend(); }
-  if (el('access-resend')) {
-    setInterval(updateResend, 1000);
-    el('access-resend').addEventListener('click', event => accessAction('code',event.currentTarget));
+  if (activating && !invite) {
+    el('access-message').textContent = 'Abra o link individual fornecido pelo administrador.';
+    el('access-submit').disabled = true;
   }
-  function showStep(code) {
-    codeStep = code;
-    if (!el('email-step')) return;
-    el('email-step').hidden = code; el('code-step').hidden = !code;
-    el('access-email').required = !code; el('access-code').required = code;
-    el('code-destination').textContent = `Confira a caixa de entrada de ${el('access-email').value.trim()}.`;
-    (code ? el('access-code') : el('access-email')).focus();
-  }
-  async function accessState() {
-    const response = await fetch('/api/access/session', {credentials:'same-origin'});
-    const info = await response.json();
-    authenticated = info.authenticated; configured = info.configured;
-    el('access-message').textContent = info.authenticated ? `Conectado como ${info.email}. Acesso válido por até 8 horas.` : info.configured ? (document.body.dataset.page === 'login' ? 'Informe seu e-mail para receber o código.' : 'Entre por e-mail para recuperar XMLs.') : 'Acesso por e-mail ainda não configurado. Use o acesso administrativo.';
-    if (el('admin-link')) el('admin-link').hidden = !info.admin;
-    if (document.body.dataset.page === 'login' && authenticated) { window.location.replace('/'); return; }
-    el('access-logout').hidden = !info.authenticated;
-    ['access-email','access-code','access-send','access-verify'].forEach(id => { el(id).disabled = info.authenticated || !info.configured; });
-  }
-  async function accessAction(action, button) {
-    if (busy) return;
-    busy = true; button.disabled = true;
-    if (el('change-email')) el('change-email').disabled = true;
+  el('login-form').addEventListener('submit', async event => {
+    event.preventDefault();
+    if (busy || (activating && !invite)) return;
+    if (activating && el('access-password').value !== el('access-confirm').value) {
+      el('access-message').textContent = 'As senhas precisam ser iguais.'; return;
+    }
+    busy = true; el('access-submit').disabled = true;
+    el('access-message').textContent = activating ? 'Salvando sua senha…' : 'Verificando acesso…';
     try {
-      const response = await fetch('/api/access/'+action, {method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/json'},body:JSON.stringify({email:el('access-email').value,code:el('access-code').value})});
+      const response = await fetch('/api/access/'+(activating ? 'activate' : 'login'), {
+        method:'POST', credentials:'same-origin', headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({email:el('access-email')?.value, password:el('access-password').value, invite,
+          captcha:widget === null ? '' : window.grecaptcha.getResponse(widget)})
+      });
       const info = await response.json();
-      if (action === 'code' && response.status === 429) cooldown(Number(response.headers.get('Retry-After')) || 60);
       if (!response.ok) throw new Error(info.error || 'Não foi possível concluir.');
-      if (action !== 'code') { el('access-code').value = ''; await accessState(); }
-      else { el('access-code').value = ''; cooldown(); el('access-message').textContent = info.message; if (el('email-step')) showStep(true); }
-      if (action === 'logout') window.location.replace('/login');
-    } catch (error) { el('access-message').textContent = error.message || 'Falha na conexão.'; }
-    finally { busy = false; if (el('change-email')) el('change-email').disabled = false; button.disabled = button.id === 'access-logout' ? false : authenticated || !configured; updateResend(); }
-  }
-  if (el('login-form')) {
-    el('login-form').addEventListener('submit', event => {
-      event.preventDefault();
-      accessAction(codeStep ? 'verify' : 'code', el(codeStep ? 'access-verify' : 'access-send'));
-    });
-    el('change-email').addEventListener('click', () => {
-      el('access-code').value = ''; showStep(false);
-      el('access-message').textContent = 'Informe seu e-mail para receber o código.';
-    });
-  } else {
-    el('access-send').addEventListener('click', event => accessAction('code',event.currentTarget));
-    el('access-verify').addEventListener('click',event => accessAction('verify',event.currentTarget));
-  }
-  el('access-logout').addEventListener('click',event => accessAction('logout',event.currentTarget));
-  accessState().catch(() => { el('access-message').textContent = 'Não foi possível verificar o acesso.'; });
+      el('access-password').value = '';
+      window.location.replace(activating ? '/login' : '/');
+    } catch (error) {
+      el('access-message').textContent = error.message || 'Falha na conexão. Tente novamente.';
+      if (widget !== null) window.grecaptcha.reset(widget);
+    } finally {
+      busy = false; el('access-submit').disabled = !!captcha || (activating && !invite);
+    }
+  });
 })();

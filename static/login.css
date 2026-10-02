@@ -16,8 +16,10 @@ input:focus-visible,button:focus-visible,a:focus-visible { outline:3px solid #93
 button { width:100%; margin-top:14px; padding:12px; border:0; border-radius:6px; background:#2563eb; color:#fff; font:600 14px system-ui,sans-serif; cursor:pointer; }
 button:hover { background:#1d4ed8; }
 button:disabled { opacity:.55; cursor:wait; }
-.code-field { margin-top:18px; }
-#access-code { letter-spacing:2px; }
+.password-field { margin-top:18px; }
+.password-hint { font-size:12px; color:#64748b; line-height:1.6; }
+#access-captcha { margin:20px auto 0; width:fit-content; max-width:100%; }
+.login-help a { color:#2563eb; }
 #access-message { font-size:13px; line-height:1.5; margin:18px 0 0; color:#334155; overflow-wrap:anywhere; }
 .login-help { border-top:1px solid #e2e8f0; margin:20px 0 0; padding-top:18px; color:#64748b; text-align:center; font-size:12px; line-height:1.7; }
 footer { display:flex; flex-direction:column; align-items:center; gap:12px; margin-top:22px; color:#c3d9e7; font-size:11px; }

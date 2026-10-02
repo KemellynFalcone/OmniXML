@@ -1,7 +1,7 @@
 <!doctype html>
 <html lang="pt-BR">
 <head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Entrar · OmniXML</title><link rel="stylesheet" href="/static/login.css"><script defer src="/static/access.js"></script></head>
-<body data-page="login">
+<body data-page="{{ 'activate' if activating else 'login' }}">
 <main class="login-shell">
 <div class="login-brand"><svg viewBox="0 0 100 100" class="brand-icon" fill="none" xmlns="http://www.w3.org/2000/svg">
                     <path d="M25 20C25 14.477 29.477 10 35 10H55L75 30V80C75 85.523 70.523 90 65 90H35C29.477 90 25 85.523 25 80V20Z" stroke="#3b82f6" stroke-width="6" stroke-linejoin="round"/>
@@ -13,20 +13,17 @@
                     <path d="M60 90L70 100L95 70" stroke="#10b981" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
                 </svg><div><span class="brand-name">Omni<strong>XML</strong></span><span class="brand-subtitle">Auditoria Fiscal</span></div></div>
 <section class="login-card" aria-labelledby="access-title">
-<h1 id="access-title">Entre no OmniXML</h1>
+<h1 id="access-title">{{ 'Crie sua senha' if activating else 'Entre no OmniXML' }}</h1>
 <p class="intro">Seu acesso à auditoria, consultas e XMLs.</p>
 <form id="login-form">
-<div id="email-step"><label for="access-email">E-mail</label><input id="access-email" type="email" autocomplete="email" placeholder="seu@email.com" maxlength="254" required>
-<button id="access-send" type="submit">Enviar código</button></div>
-<div id="code-step" hidden><p id="code-destination" class="intro"></p>
-<div class="code-field"><label for="access-code">Código de acesso</label><input id="access-code" inputmode="numeric" autocomplete="one-time-code" placeholder="6 dígitos" maxlength="6" pattern="[0-9]{6}"></div>
-<button id="access-verify" type="submit" class="secondary">Entrar</button>
-<button id="access-resend" type="button" class="text-button" disabled>Reenviar código em 60s</button>
-<button id="change-email" type="button" class="text-button">Usar outro e-mail</button></div>
-<button id="access-logout" type="button" hidden>Sair</button>
+{% if not activating %}<label for="access-email">E-mail</label><input id="access-email" type="email" autocomplete="username" placeholder="seu@email.com" maxlength="254" required>{% endif %}
+<div class="password-field"><label for="access-password">{{ 'Nova senha' if activating else 'Senha' }}</label><input id="access-password" type="password" autocomplete="{{ 'new-password' if activating else 'current-password' }}" minlength="15" maxlength="128" required></div>
+{% if activating %}<div class="password-field"><label for="access-confirm">Confirme a senha</label><input id="access-confirm" type="password" autocomplete="new-password" minlength="15" maxlength="128" required></div><p class="password-hint">Use de 15 a 128 caracteres. Você pode usar uma frase longa com espaços.</p>{% endif %}
+{% if captcha_site_key %}<div id="access-captcha" data-sitekey="{{ captcha_site_key }}" aria-label="Proteção contra robôs"></div>{% endif %}
+<button id="access-submit" type="submit">{{ 'Salvar senha' if activating else 'Entrar' }}</button>
 </form>
-<p id="access-message" role="status" aria-live="polite">Verificando acesso…</p>
-<p class="login-help">Use um e-mail liberado pelo administrador.<br>O código enviado ao seu e-mail vale por 10 minutos.</p>
+<p id="access-message" role="status" aria-live="polite"></p>
+<p class="login-help">{% if activating %}O link é individual, vale por uma hora e pode ser usado uma única vez.<br><a href="/login">Voltar ao login</a>{% else %}Primeiro acesso ou esqueceu a senha?<br>Solicite seu link ao administrador pelo <a href="mailto:omnixml@gmail.com">omnixml@gmail.com</a>.{% endif %}</p>
 </section>
 <footer><a href="/privacy">Privacidade e tratamento de dados</a><span>Desenvolvido por KASFALCONE</span></footer>
 </main></body></html>

@@ -15,8 +15,7 @@ Esta pasta contém somente a documentação **atual e de consulta recorrente** d
 
 ## Acesso e recuperação
 
-- [ACESSO_EMAIL.md](./ACESSO_EMAIL.md) — login único, sessão e limites.
-- [GMAIL.md](./GMAIL.md) — envio OAuth, renovação e diagnóstico.
+- [ACESSO_SENHA.md](./ACESSO_SENHA.md) — login com senha, primeiro acesso, redefinição e CAPTCHA.
 - [CLIENTES_MONITOR.md](./CLIENTES_MONITOR.md) — painel ADM, D1 e monitor temporário.
 - [RECUPERACAO_XML.md](./RECUPERACAO_XML.md) — recuperação com A1.
 - [COBERTURA_NFCE.md](./COBERTURA_NFCE.md) — cobertura real por modelo e UF.

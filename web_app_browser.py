@@ -20,10 +20,10 @@ from services.email_access import identity as current_user
 
 @app.before_request
 def require_login():
-    public = request.path.startswith('/static/') or request.path in ('/login', '/privacy', '/health', '/api/access/code', '/api/access/verify', '/api/access/session', '/api/access/logout')
+    public = request.path.startswith('/static/') or request.path in ('/login', '/privacy', '/health', '/activate', '/api/access/login', '/api/access/activate', '/api/access/session', '/api/access/logout')
     if not public and not current_user():
         if request.path.startswith('/api/') or request.method not in ('GET', 'HEAD'):
-            return jsonify(error='Entre por e-mail para acessar o OmniXML.'), 401
+            return jsonify(error='Entre com e-mail e senha para acessar o OmniXML.'), 401
         return redirect('/login')
 
 # Enable only behind a trusted single reverse proxy (e.g. Render).
@@ -217,6 +217,13 @@ def aplicar_cabecalhos_seguranca(response):
         "connect-src 'self'; "
         "worker-src 'self' blob:"
     )
+    from services.email_access import captcha_site_key
+    if request.path in ('/login', '/activate') and captcha_site_key():
+        policy = response.headers['Content-Security-Policy']
+        policy = policy.replace("frame-src 'none'", "frame-src https://www.google.com/recaptcha/ https://recaptcha.google.com/recaptcha/")
+        policy = policy.replace("script-src 'self'", "script-src 'self' https://www.google.com/recaptcha/ https://www.gstatic.com/recaptcha/")
+        policy = policy.replace("connect-src 'self'", "connect-src 'self' https://www.google.com/recaptcha/")
+        response.headers['Content-Security-Policy'] = policy
     response.headers['Content-Security-Policy-Report-Only'] = (
         "default-src 'self'; "
         "base-uri 'self'; "
@@ -227,6 +234,8 @@ def aplicar_cabecalhos_seguranca(response):
         "style-src-elem 'self' https://cdn.datatables.net https://cdnjs.cloudflare.com https://fonts.googleapis.com; "
         "style-src-attr 'none'"
     )
+    if request.path in ('/login', '/activate') and captcha_site_key():
+        response.headers['Content-Security-Policy-Report-Only'] = response.headers['Content-Security-Policy']
     if response.is_json or response.mimetype in {'text/html', 'application/json', 'application/javascript', 'text/javascript', 'text/css'}:
         response.headers['Cache-Control'] = 'no-store'
     return response

@@ -15,6 +15,10 @@
     const button=document.createElement('button');button.type='button';button.className='secondary';button.textContent=label;
     button.addEventListener('click',async()=>{if(action==='delete'&&!window.confirm('Excluir o cadastro e revogar o acesso de '+client.email+'?'))return;button.disabled=true;try{await api('/api/admin/clients',{email:client.email,action});el('admin-message').textContent='Cadastro atualizado.';await loadClients();}catch(e){el('admin-message').textContent=e.message;button.disabled=false;}});cells[3].append(button);
    }else cells[3].textContent='Gerenciado no Render';
+   if(client.active){
+    const button=document.createElement('button');button.type='button';button.className='secondary';button.textContent='Criar / redefinir senha';
+    button.addEventListener('click',async()=>{if(!window.confirm('Gerar novo link de senha para '+client.email+'? O link anterior deixará de funcionar.'))return;button.disabled=true;try{await invite(client.email);}catch(e){el('admin-message').textContent=e.message;}finally{button.disabled=false;}});cells[3].append(button);
+   }
    row.append(...cells);el('client-list').append(row);
   }
  }
@@ -25,7 +29,14 @@
    el('traffic-status').textContent=`Processo ${data.worker} · ativo há ${data.uptime_seconds}s · atualizado às ${new Date().toLocaleTimeString('pt-BR')}`;
   }catch(e){el('traffic-status').textContent=e.message;}finally{button.disabled=false;}
  }
- el('client-form').addEventListener('submit',async event=>{event.preventDefault();el('client-add').disabled=true;try{await api('/api/admin/clients',{email:el('client-email').value,action:'add'});el('client-email').value='';el('admin-message').textContent='Cliente liberado.';await loadClients();}catch(e){el('admin-message').textContent=e.message;el('client-add').disabled=false;}});
+ async function invite(email){
+  const result=await api('/api/admin/password-invite',{email});
+  el('invite-panel').hidden=false;el('invite-url').value=result.url;
+  el('admin-message').textContent='Link criado para '+result.email+'. A senha anterior funciona até o cliente concluir a redefinição.';
+  el('invite-url').focus();el('invite-url').select();
+ }
+ el('invite-copy').addEventListener('click',async()=>{try{await navigator.clipboard.writeText(el('invite-url').value);el('admin-message').textContent='Link copiado. Compartilhe somente com o titular.';}catch(e){el('invite-url').focus();el('invite-url').select();el('admin-message').textContent='Selecione e copie o link acima.';}});
+ el('client-form').addEventListener('submit',async event=>{event.preventDefault();el('client-add').disabled=true;const email=el('client-email').value.trim();try{await api('/api/admin/clients',{email,action:'add'});await invite(email);el('client-email').value='';await loadClients();}catch(e){el('admin-message').textContent=e.message;el('client-add').disabled=false;}});
  el('traffic-refresh').addEventListener('click',monitor);
  loadClients().catch(e=>{el('admin-message').textContent=e.message;});monitor();
 })();
