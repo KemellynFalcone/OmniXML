@@ -30,3 +30,9 @@ def test_health_publica_hardening_phase3():
     assert health['browser_security'].endswith('-v3')
     assert health['csp_migration'] == 'strict-script-policy-report-only'
     assert response.headers['X-Content-Type-Options'] == 'nosniff'
+
+
+def test_hsts_only_on_https():
+    client = web_app_browser.app.test_client()
+    assert client.get('/health', base_url='https://localhost').headers['Strict-Transport-Security'] == 'max-age=31536000'
+    assert 'Strict-Transport-Security' not in client.get('/health', base_url='http://localhost').headers

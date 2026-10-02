@@ -43,9 +43,9 @@ Não compartilhe links do Playground com a opção de incluir credenciais/tokens
 | `OMNIXML_ALLOWED_EMAILS` | E-mails liberados, separados por vírgula. Para começar: `omnixml@gmail.com`. |
 | `OMNIXML_TRUST_PROXY` | `1` no Render |
 
-Para gerar um segredo novo, execute em ambiente privado `python -c "import secrets; print(secrets.token_urlsafe(48))"` e cole apenas no Render. Mantenha o token administrativo como alternativa durante a ativação. Resend e SMTP não são usados quando o provedor é Gmail.
+Para gerar um segredo novo, execute em ambiente privado `python -c "import secrets; print(secrets.token_urlsafe(48))"` e cole apenas no Render. O login por código é obrigatório; o token fiscal legado não substitui a sessão. Resend e SMTP não são usados quando o provedor é Gmail.
 
-Salve/reimplante e, em `/downloads`, peça um código para o primeiro e-mail liberado. Confira a caixa de entrada e spam, valide o código e teste sair. A autorização do Google não foi executada pelos testes do projeto; o envio real precisa ser conferido após configurar as credenciais.
+Salve/reimplante e, em `/login`, peça um código para o primeiro e-mail liberado. Confira a caixa de entrada e spam, valide o código e teste sair. A autorização do Google não foi executada pelos testes do projeto; o envio real precisa ser conferido após configurar as credenciais.
 
 ## Continuidade
 
@@ -59,3 +59,7 @@ O Gmail possui limites de envio e pode recusar mensagens. O código não tenta r
 - [Escopos Gmail](https://developers.google.com/workspace/gmail/api/auth/scopes)
 - [OAuth Playground](https://developers.google.com/oauthplayground/)
 - [Expiração de tokens OAuth](https://developers.google.com/identity/protocols/oauth2#expiration)
+
+## Diagnóstico seguro
+
+O servidor renova o access token antes de cada envio a partir do refresh token. Não é necessário manter o Playground aberto. Logs `omnixml_gmail_failed` mostram apenas etapa, categoria e status HTTP. `stage=oauth_refresh reason=invalid_grant` exige conferir a autorização e o refresh token do mesmo cliente OAuth; não significa simplesmente que o access token chegou ao fim do contador. Depois de colocar o aplicativo em produção, gere um refresh token novo e salve no Render. Nunca inclua tokens em chamados ou screenshots.
