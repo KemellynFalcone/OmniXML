@@ -20,6 +20,9 @@ def configured():
     common = len(os.environ.get('OMNIXML_AUTH_SECRET', '')) >= 32 and all(
         os.environ.get(k) for k in ('OMNIXML_ALLOWED_EMAILS', 'OMNIXML_EMAIL_FROM'))
     provider = os.environ.get('OMNIXML_EMAIL_PROVIDER', 'resend')
+    if provider == 'gmail':
+        return common and all(os.environ.get(k) for k in
+            ('OMNIXML_GMAIL_CLIENT_ID', 'OMNIXML_GMAIL_CLIENT_SECRET', 'OMNIXML_GMAIL_REFRESH_TOKEN'))
     if provider == 'resend':
         return common and bool(os.environ.get('OMNIXML_RESEND_API_KEY'))
     return common and provider == 'smtp' and all(os.environ.get(k) for k in
@@ -81,6 +84,10 @@ def send_code(email, code):
     message['To'] = email
     message['Subject'] = 'Seu código de acesso ao OmniXML'
     message.set_content(f'Seu código de acesso é: {code}\n\nVálido por 10 minutos e para um único uso. Se não solicitou, ignore este e-mail. Não compartilhe o código.')
+    if os.environ.get('OMNIXML_EMAIL_PROVIDER', 'resend') == 'gmail':
+        from services.gmail_sender import send_message
+        send_message(message)
+        return
     host = os.environ['OMNIXML_SMTP_HOST']
     port = int(os.environ.get('OMNIXML_SMTP_PORT', '587'))
     import ssl
