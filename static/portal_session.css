@@ -11,3 +11,7 @@
 .sidebar-collapsed .portal-session-heading,.sidebar-collapsed .portal-session-email { display:none; }
 .sidebar-collapsed .portal-session button,.sidebar-collapsed .portal-session a { padding:7px 3px; font-size:10px; overflow-wrap:anywhere; text-align:center; }
 @media(max-width:800px) { .app-sidebar > .portal-session { margin:12px 16px; } }
+
+.portal-credit { flex-shrink:0; padding:10px 20px; border-top:1px solid #e2e8f0; background:#f8fafc; color:#64748b; text-align:center; font:11px system-ui,sans-serif; line-height:1.5; }
+.portal-credit strong { color:#2563eb; font-weight:600; }
+@media print { .portal-credit { display:none; } }
