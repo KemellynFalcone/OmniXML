@@ -3,6 +3,7 @@ from flask import Blueprint, jsonify, redirect, render_template, request
 from services import client_registry as registry
 from services.email_access import identity, secure_origin
 from services.traffic_monitor import snapshot
+from services.d1_registry import StorageUnavailable
 
 blueprint = Blueprint('administration', __name__)
 
@@ -45,7 +46,7 @@ def change_client():
         return jsonify(error='Acesso restrito.'),403
     request.max_content_length = 4096
     if not registry.enabled():
-        return jsonify(error='Configure OMNIXML_CLIENTS_DATABASE_URL com a conexão do Neon ou OMNIXML_CLIENTS_DB em armazenamento persistente.'),503
+        return jsonify(error='Configure as variáveis OMNIXML_D1 no Render antes de cadastrar clientes.'),503
     data = request.get_json(silent=True)
     if not isinstance(data,dict):
         return jsonify(error='Requisição inválida.'),400
@@ -76,4 +77,12 @@ def traffic():
 @blueprint.after_request
 def private(response):
     response.headers['Cache-Control']='no-store'
+    return response
+
+
+@blueprint.app_errorhandler(StorageUnavailable)
+def storage_unavailable(error):
+    response = jsonify(error=str(error))
+    response.status_code = 503
+    response.headers['Cache-Control'] = 'no-store'
     return response
