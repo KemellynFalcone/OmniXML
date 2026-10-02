@@ -6,7 +6,12 @@
     if (!info.authenticated) { location.replace('/login'); return; }
     const bar = document.createElement('div');
     bar.className = 'portal-session';
+    const heading = document.createElement('strong');
+    heading.className = 'portal-session-heading';
+    heading.textContent = 'Conta conectada';
+    bar.append(heading);
     const name = document.createElement('span');
+    name.className = 'portal-session-email';
     name.textContent = info.email;
     bar.append(name);
     if (info.admin && location.pathname === '/') {
@@ -14,7 +19,7 @@
       admin.href = '/admin'; admin.textContent = 'Administração'; bar.append(admin);
     }
     const logout = document.createElement('button');
-    logout.type = 'button'; logout.textContent = 'Sair';
+    logout.type = 'button'; logout.textContent = '↪ Sair do sistema';
     logout.addEventListener('click', async () => {
       logout.disabled = true;
       try {
@@ -24,7 +29,12 @@
       } catch { logout.disabled = false; logout.textContent = 'Tentar sair novamente'; }
     });
     bar.append(logout);
-    const header = document.querySelector('main > header, .app-topbar');
-    if (header) { header.classList.add('portal-header'); header.append(bar); }
+    const sidebar = document.querySelector('#main-sidebar, .app-sidebar');
+    if (sidebar) {
+      const footer = sidebar.querySelector('.sidebar-footer, #footer-collapsed')?.parentElement;
+      if (sidebar.classList.contains('app-sidebar')) sidebar.querySelector('.sidebar-footer')?.remove();
+      if (footer && sidebar.id === 'main-sidebar') footer.replaceChildren(bar);
+      else sidebar.append(bar);
+    }
   } catch { location.replace('/login'); }
 })();
