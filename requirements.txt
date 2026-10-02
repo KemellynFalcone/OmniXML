@@ -5,3 +5,4 @@ requests>=2.32.4,<3
 requests-pkcs12>=1.27,<2
 zeep>=4.3,<5
 cryptography>=50,<51
+psycopg[binary]>=3.2,<4

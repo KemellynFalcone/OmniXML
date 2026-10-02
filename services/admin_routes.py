@@ -45,7 +45,7 @@ def change_client():
         return jsonify(error='Acesso restrito.'),403
     request.max_content_length = 4096
     if not registry.enabled():
-        return jsonify(error='Configure OMNIXML_CLIENTS_DB em armazenamento persistente antes de cadastrar clientes.'),503
+        return jsonify(error='Configure OMNIXML_CLIENTS_DATABASE_URL com a conexão do Neon ou OMNIXML_CLIENTS_DB em armazenamento persistente.'),503
     data = request.get_json(silent=True)
     if not isinstance(data,dict):
         return jsonify(error='Requisição inválida.'),400

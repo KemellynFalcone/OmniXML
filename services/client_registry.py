@@ -17,11 +17,31 @@ def legacy():
 
 
 def enabled():
-    return bool(os.environ.get('OMNIXML_CLIENTS_DB'))
+    return bool(os.environ.get('OMNIXML_CLIENTS_DATABASE_URL') or os.environ.get('OMNIXML_CLIENTS_DB'))
+
+
+class PostgresConnection:
+    def __init__(self, db):
+        self.db = db
+
+    def execute(self, sql, params=()):
+        # Statements are fixed application SQL; values stay bound parameters.
+        return self.db.execute(sql.replace('?', '%s'), params)
 
 
 @contextmanager
 def connection():
+    url = os.environ.get('OMNIXML_CLIENTS_DATABASE_URL')
+    if url:
+        import psycopg
+        from psycopg.conninfo import conninfo_to_dict
+        options = conninfo_to_dict(url)
+        if options.get('sslmode') not in ('require', 'verify-ca', 'verify-full'):
+            raise ValueError('A conexão PostgreSQL deve exigir TLS (sslmode=require).')
+        with psycopg.connect(url, connect_timeout=15, prepare_threshold=None) as db:
+            db.execute('CREATE TABLE IF NOT EXISTS clients (email TEXT PRIMARY KEY, active INTEGER NOT NULL, created BIGINT NOT NULL)')
+            yield PostgresConnection(db)
+        return
     # No silently ephemeral client list: admin must select storage explicitly.
     path = os.environ['OMNIXML_CLIENTS_DB']
     db = sqlite3.connect(path, timeout=10)

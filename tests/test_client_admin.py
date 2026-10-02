@@ -79,3 +79,40 @@ def test_login_privacy_and_private_counters(client,tmp_path,monkeypatch):
     assert traffic_monitor.snapshot()['requests']==after['requests']
     assert set(response.json)=={'requests','active','success','rejected','errors','bytes_in','bytes_out','fiscal','access','pages','average_ms','uptime_seconds','worker'}
     assert 'admin@example.com' not in response.get_data(as_text=True)
+
+
+def test_postgres_requires_tls_and_prefers_remote(client,tmp_path,monkeypatch):
+    import pytest
+    import psycopg
+    setup_registry(tmp_path,monkeypatch)
+    monkeypatch.setenv('OMNIXML_CLIENTS_DATABASE_URL','postgresql://user:password@localhost/clients?sslmode=disable')
+    monkeypatch.setattr(psycopg,'connect',lambda *a,**k:pytest.fail('Must reject insecure connection before connecting'))
+    with pytest.raises(ValueError,match='TLS'):
+        client_registry.allowed('customer@example.com')
+    assert not (tmp_path/'clients.db').exists()
+
+
+def test_postgres_bound_parameters_and_transaction(client,tmp_path,monkeypatch):
+    import psycopg
+    setup_registry(tmp_path,monkeypatch)
+    monkeypatch.setenv('OMNIXML_CLIENTS_DATABASE_URL','postgresql://user:password@localhost/clients?sslmode=require')
+    calls=[]
+    class Remote:
+        def __enter__(self): return self
+        def __exit__(self,*args): calls.append(('exit',args[0]))
+        def execute(self,sql,params=()):
+            calls.append((sql,params))
+            return self
+        def fetchone(self): return (1,)
+    def connect(url,**options):
+        assert options=={'connect_timeout':15,'prepare_threshold':None}
+        return Remote()
+    monkeypatch.setattr(psycopg,'connect',connect)
+    email="o'connor@example.com"
+    client_registry.change(email,'add')
+    assert client_registry.allowed(email)
+    insert=next(c for c in calls if c[0].startswith('INSERT'))
+    assert email not in insert[0] and insert[1][0]==email
+    assert '%s' in insert[0] and '?' not in insert[0]
+    assert ('exit',None) in calls
+    assert not (tmp_path/'clients.db').exists()
