@@ -9,6 +9,8 @@ app = Flask(__name__, template_folder='templates', static_folder='static')
 from services.sefaz_routes import FiscalRequest, blueprint as sefaz_blueprint
 app.request_class = FiscalRequest
 app.register_blueprint(sefaz_blueprint)
+from services.email_access import blueprint as email_blueprint
+app.register_blueprint(email_blueprint)
 
 # Enable only behind a trusted single reverse proxy (e.g. Render).
 if os.environ.get('OMNIXML_TRUST_PROXY') == '1':

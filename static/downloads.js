@@ -67,7 +67,7 @@
     finally { el('zip').disabled = running || !files.size; }
   });
   fetch('/api/sefaz/capabilities').then(response => response.json()).then(info => {
-    el('availability').textContent = info.enabled ? 'Recuperação disponível. Informe seu A1 e as chaves.' : 'Recuperação desativada no servidor. O administrador precisa configurar OMNIXML_SEFAZ_TOKEN.';
+    el('availability').textContent = info.enabled ? 'Recuperação disponível. Informe seu A1 e as chaves.' : 'Recuperação desativada no servidor. O administrador precisa configurar o acesso.';
   }).catch(() => { el('availability').textContent = 'Não foi possível verificar a disponibilidade.'; });
   window.addEventListener('pagehide',cleanup);
 })();
