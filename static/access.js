@@ -1,13 +1,25 @@
 'use strict';
 (() => {
   const el = id => document.getElementById(id);
-  let authenticated = false, configured = false, codeStep = false, busy = false;
+  let authenticated = false, configured = false, codeStep = false, busy = false, resendAt = 0;
+  function updateResend() {
+    const button = el('access-resend');
+    if (!button) return;
+    const seconds = Math.max(0, Math.ceil((resendAt-Date.now())/1000));
+    button.disabled = busy || !configured || seconds > 0;
+    button.textContent = seconds ? `Reenviar código em ${seconds}s` : 'Reenviar código';
+  }
+  function cooldown(seconds=60) { resendAt = Date.now()+seconds*1000; updateResend(); }
+  if (el('access-resend')) {
+    setInterval(updateResend, 1000);
+    el('access-resend').addEventListener('click', event => accessAction('code',event.currentTarget));
+  }
   function showStep(code) {
     codeStep = code;
     if (!el('email-step')) return;
     el('email-step').hidden = code; el('code-step').hidden = !code;
     el('access-email').required = !code; el('access-code').required = code;
-    el('code-destination').textContent = `Código enviado para ${el('access-email').value.trim()}.`;
+    el('code-destination').textContent = `Confira a caixa de entrada de ${el('access-email').value.trim()}.`;
     (code ? el('access-code') : el('access-email')).focus();
   }
   async function accessState() {
@@ -27,12 +39,13 @@
     try {
       const response = await fetch('/api/access/'+action, {method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/json'},body:JSON.stringify({email:el('access-email').value,code:el('access-code').value})});
       const info = await response.json();
+      if (action === 'code' && response.status === 429) cooldown(Number(response.headers.get('Retry-After')) || 60);
       if (!response.ok) throw new Error(info.error || 'Não foi possível concluir.');
       if (action !== 'code') { el('access-code').value = ''; await accessState(); }
-      else { el('access-message').textContent = info.message; if (el('email-step')) showStep(true); }
+      else { el('access-code').value = ''; cooldown(); el('access-message').textContent = info.message; if (el('email-step')) showStep(true); }
       if (action === 'logout') window.location.replace('/login');
     } catch (error) { el('access-message').textContent = error.message || 'Falha na conexão.'; }
-    finally { busy = false; if (el('change-email')) el('change-email').disabled = false; button.disabled = button.id === 'access-logout' ? false : authenticated || !configured; }
+    finally { busy = false; if (el('change-email')) el('change-email').disabled = false; button.disabled = button.id === 'access-logout' ? false : authenticated || !configured; updateResend(); }
   }
   if (el('login-form')) {
     el('login-form').addEventListener('submit', event => {

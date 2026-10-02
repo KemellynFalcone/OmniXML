@@ -150,10 +150,10 @@ def request_code():
         db.execute('DELETE FROM rates WHERE start<?', (now-3600,))
         ip = digest('ip:' + (request.remote_addr or 'unknown'))
         if not rate_limit(db, ip, 30) or not rate_limit(db, digest('email:'+email), 5):
-            return jsonify(error='Limite de solicitações atingido. Aguarde antes de tentar novamente.'), 429
+            return jsonify(error='Limite de solicitações atingido. Aguarde antes de tentar novamente.'), 429, {'Retry-After':'3600'}
         row = db.execute('SELECT sent FROM codes WHERE email=?', (email,)).fetchone()
         if row and now-row[0] < 60:
-            return jsonify(error='Aguarde um minuto antes de pedir outro código.'), 429
+            return jsonify(error='Aguarde um minuto antes de pedir outro código.'), 429, {'Retry-After':str(60-(now-row[0]))}
         if allowed(email):
             db.execute('INSERT OR REPLACE INTO codes VALUES (?,?,?,0,?)', (email, digest(email+':'+code), now+600, now))
     if allowed(email):
