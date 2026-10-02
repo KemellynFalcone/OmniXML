@@ -2,7 +2,7 @@ import re
 import os
 from pathlib import Path
 
-from flask import Flask, Response, jsonify, render_template, request
+from flask import Flask, Response, jsonify, render_template, request, redirect
 
 app = Flask(__name__, template_folder='templates', static_folder='static')
 
@@ -15,6 +15,16 @@ from services.admin_routes import blueprint as admin_blueprint
 app.register_blueprint(admin_blueprint)
 from services.traffic_monitor import install as install_monitor
 install_monitor(app)
+
+from services.email_access import identity as current_user
+
+@app.before_request
+def require_login():
+    public = request.path.startswith('/static/') or request.path in ('/login', '/privacy', '/health', '/api/access/code', '/api/access/verify', '/api/access/session', '/api/access/logout')
+    if not public and not current_user():
+        if request.path.startswith('/api/') or request.method not in ('GET', 'HEAD'):
+            return jsonify(error='Entre por e-mail para acessar o OmniXML.'), 401
+        return redirect('/login')
 
 # Enable only behind a trusted single reverse proxy (e.g. Render).
 if os.environ.get('OMNIXML_TRUST_PROXY') == '1':
@@ -226,6 +236,8 @@ def index():
     html, _ = _separar_estilo_dashboard(html)
     html, _ = _separar_runtime_dashboard(html)
     ponte = (
+        '<link rel="stylesheet" href="/static/portal_session.css">'
+        '<script src="/static/portal_session.js"></script>'
         '<script src="/static/browser_security_v2.js?v=1&phase=7"></script>'
         '<script src="/static/browser_security_v3.js?v=1"></script>'
         '<script src="/static/safe_renderers_v8.js?v=1"></script>'

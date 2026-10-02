@@ -1,0 +1,4 @@
+.portal-session { display:flex; align-items:center; justify-content:flex-end; gap:16px; flex-wrap:wrap; padding:10px 20px; background:#fff; border-bottom:1px solid #e2e8f0; color:#334155; font:14px system-ui,sans-serif; }
+.portal-session span { overflow-wrap:anywhere; }
+.portal-session a { color:#2563eb; }
+.portal-session button { border:1px solid #cbd5e1; border-radius:6px; padding:6px 12px; background:#fff; color:#334155; cursor:pointer; }
