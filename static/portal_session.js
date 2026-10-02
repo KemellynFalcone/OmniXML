@@ -23,6 +23,8 @@
         location.replace('/login');
       } catch { logout.disabled = false; logout.textContent = 'Tentar sair novamente'; }
     });
-    bar.append(logout); document.body.prepend(bar);
+    bar.append(logout);
+    const header = document.querySelector('main > header');
+    if (header) { header.classList.add('portal-header'); header.append(bar); }
   } catch { location.replace('/login'); }
 })();
