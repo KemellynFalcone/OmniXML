@@ -9,7 +9,7 @@
     const name = document.createElement('span');
     name.textContent = info.email;
     bar.append(name);
-    if (info.admin) {
+    if (info.admin && location.pathname === '/') {
       const admin = document.createElement('a');
       admin.href = '/admin'; admin.textContent = 'Administração'; bar.append(admin);
     }
@@ -24,7 +24,7 @@
       } catch { logout.disabled = false; logout.textContent = 'Tentar sair novamente'; }
     });
     bar.append(logout);
-    const header = document.querySelector('main > header');
+    const header = document.querySelector('main > header, .app-topbar');
     if (header) { header.classList.add('portal-header'); header.append(bar); }
   } catch { location.replace('/login'); }
 })();

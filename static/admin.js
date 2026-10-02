@@ -7,7 +7,7 @@
  }
  async function loadClients() {
   const info=await api('/api/admin/clients');el('client-list').replaceChildren();el('client-add').disabled=!info.editable;
-  if(!info.editable)el('admin-message').textContent='Cadastro pelo painel desativado. Configure OMNIXML_CLIENTS_DB em armazenamento persistente. Os e-mails já liberados continuam funcionando.';
+  if(!info.editable)el('admin-message').textContent='Cadastro pelo painel desativado. Configure as variáveis do Cloudflare D1 no Render. Os e-mails já liberados continuam funcionando.';
   for(const client of info.clients){
    const row=document.createElement('tr');const cells=Array.from({length:4},()=>document.createElement('td'));
    cells[0].textContent=client.email;cells[1].textContent=client.active?'Liberado':'Bloqueado';cells[2].textContent=client.created?new Date(client.created*1000).toLocaleDateString('pt-BR'):'Configuração do servidor';
