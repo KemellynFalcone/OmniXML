@@ -16,17 +16,29 @@
     bar.append(name);
     if (info.admin && location.pathname === '/') {
       const admin = document.createElement('a');
-      admin.href = '/admin'; admin.textContent = 'Administração'; bar.append(admin);
+      admin.href = '/admin'; admin.title = 'Administração';
+      admin.setAttribute('aria-label', 'Administração');
+      const icon = document.createElement('span');
+      icon.className = 'portal-action-icon'; icon.textContent = '⚙'; icon.setAttribute('aria-hidden', 'true');
+      const label = document.createElement('span');
+      label.className = 'portal-action-label'; label.textContent = 'Administração';
+      admin.append(icon, label); bar.append(admin);
     }
     const logout = document.createElement('button');
-    logout.type = 'button'; logout.textContent = '↪ Sair do sistema';
+    logout.type = 'button'; logout.title = 'Sair do sistema';
+    logout.setAttribute('aria-label', 'Sair do sistema');
+    const logoutIcon = document.createElement('span');
+    logoutIcon.className = 'portal-action-icon'; logoutIcon.textContent = '↪'; logoutIcon.setAttribute('aria-hidden', 'true');
+    const logoutLabel = document.createElement('span');
+    logoutLabel.className = 'portal-action-label'; logoutLabel.textContent = 'Sair do sistema';
+    logout.append(logoutIcon, logoutLabel);
     logout.addEventListener('click', async () => {
       logout.disabled = true;
       try {
         const result = await fetch('/api/access/logout', {method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/json'},body:'{}'});
         if (!result.ok) throw new Error();
         location.replace('/login');
-      } catch { logout.disabled = false; logout.textContent = 'Tentar sair novamente'; }
+      } catch { logout.disabled = false; logoutLabel.textContent = 'Tentar sair novamente'; logout.title = 'Tentar sair novamente'; }
     });
     bar.append(logout);
     const workspace = document.querySelector('main');
