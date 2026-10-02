@@ -194,3 +194,20 @@ def test_state_status_accepts_not_found_without_creating_xml():
         def query(self,*args):
             return envelope('retConsSitNFe',{'cStat':'217','xMotivo':'Não consta'})
     assert fiscal.recover(Fake(),key('65','29'),'nfce-state','12345678000195','SP',True) == (None,'217','Não consta')
+
+
+def test_download_capabilities_distinguish_portal_and_automatic(browser):
+    paths = browser.get('/api/sefaz/capabilities').json['recovery_paths']
+    assert paths['35']['mode'] == 'automatic'
+    assert paths['52']['mode'] == 'portal'
+    assert paths['51']['mode'] == 'administrative'
+    assert paths['31']['mode'] == paths['41']['mode'] == paths['50']['mode'] == 'unconfirmed'
+    assert all(path['url'].startswith('https://') for path in paths.values())
+
+
+def test_unsupported_download_offers_recovery_without_requesting_a1(browser):
+    response = browser.post('/api/sefaz/recover',headers={'Origin':'http://localhost'},data={
+        'key':key('65','52'),'uf':'GO','action':'download'})
+    assert response.status_code == 400
+    assert response.json['code'] == 'unsupported'
+    assert response.json['recovery']['mode'] == 'portal'
