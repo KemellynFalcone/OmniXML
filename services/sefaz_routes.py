@@ -11,6 +11,8 @@ from urllib.parse import quote, urlsplit
 from flask import Blueprint, Request, Response, current_app, jsonify, render_template, request
 from werkzeug.exceptions import RequestEntityTooLarge
 
+from services.email_access import configured, identity
+
 from services.sefaz_download import (FiscalClient, RecoveryError, UF_CODES, certificate_cnpj,
                                     key_validate, recover)
 
@@ -35,6 +37,8 @@ def access_allowed():
     origin = request.headers.get('Origin')
     if not origin or urlsplit(origin).netloc != request.host or urlsplit(origin).scheme != request.scheme:
         return False
+    if identity():
+        return True
     if token:
         return hmac.compare_digest(request.headers.get('Authorization','').encode(),('Bearer '+token).encode())
     return local
@@ -50,7 +54,7 @@ def capabilities():
     return jsonify(nfe='Distribuição nacional: todas as UFs, conforme permissão do certificado.',
                    nfce='Download e situação: SP (SAE). Outras UFs ainda não implementadas.',
                    other='CT-e, MDF-e e outros modelos ainda não implementados.',
-                   enabled=bool(os.environ.get('OMNIXML_SEFAZ_TOKEN')) or
+                   enabled=bool(os.environ.get('OMNIXML_SEFAZ_TOKEN')) or configured() or
                            (request.remote_addr in ('127.0.0.1','::1') and request.host.split(':')[0] in ('localhost','127.0.0.1')))
 
 
