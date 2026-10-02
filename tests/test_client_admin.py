@@ -67,7 +67,7 @@ def test_login_privacy_and_private_counters(client,tmp_path,monkeypatch):
     assert client.get('/admin',base_url='https://localhost').status_code==302
     assert client.get('/login',base_url='https://localhost').status_code==200
     assert client.get('/privacy',base_url='https://localhost').status_code==200
-    assert client.get('/api/admin/traffic',base_url='https://localhost').status_code==403
+    assert client.get('/api/admin/traffic',base_url='https://localhost').status_code==401
     login(client,'admin@example.com',monkeypatch)
     assert client.get('/login',base_url='https://localhost').status_code==302
     before=traffic_monitor.snapshot()

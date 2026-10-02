@@ -8,7 +8,7 @@
     authenticated = info.authenticated; configured = info.configured;
     el('access-message').textContent = info.authenticated ? `Conectado como ${info.email}. Acesso válido por até 8 horas.` : info.configured ? (document.body.dataset.page === 'login' ? 'Informe seu e-mail para receber o código.' : 'Entre por e-mail para recuperar XMLs.') : 'Acesso por e-mail ainda não configurado. Use o acesso administrativo.';
     if (el('admin-link')) el('admin-link').hidden = !info.admin;
-    if (document.body.dataset.page === 'login' && authenticated) { window.location.replace('/downloads'); return; }
+    if (document.body.dataset.page === 'login' && authenticated) { window.location.replace('/'); return; }
     el('access-logout').hidden = !info.authenticated;
     ['access-email','access-code','access-send','access-verify'].forEach(id => { el(id).disabled = info.authenticated || !info.configured; });
   }

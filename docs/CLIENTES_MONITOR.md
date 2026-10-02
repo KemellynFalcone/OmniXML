@@ -64,3 +64,8 @@ O aplicativo continua no Render. O cadastro usa a API HTTPS do D1 diretamente do
 6. Faça deploy, entre em `/login` e abra `/admin`. A tabela clients é criada automaticamente. Cadastre, valide, bloqueie, reative e remova um cliente de teste. Depois de um deploy, confirme que o cadastro continua presente.
 
 O D1 guarda somente email, active e created. Não há migração automática de registros de outro banco. E-mails em OMNIXML_ALLOWED_EMAILS permanecem exceções do servidor e devem sair dessa variável para serem geridos pelo painel. Códigos e sessões continuam temporários; XML, A1, senha fiscal e monitor não são enviados ao D1. Logs, recuperação e backups do provedor seguem as políticas da Cloudflare. As quotas gratuitas do D1 e da API são aplicáveis; não são ilimitadas. Falhas do D1 retornam erro 503 sem expor token nem resposta do provedor. Bloqueios dependem da consulta ao cadastro a cada validação de sessão, sem cache de autorização.
+
+
+## Login único do portal
+
+Todo o portal exige uma sessão validada por código. Sem sessão, páginas redirecionam para /login e APIs retornam 401. Login validado abre a auditoria (/), e a mesma sessão vale para downloads e consultas. Administração continua limitada aos e-mails administradores. Token fiscal legado não permite passar pela proteção global. Logout revoga a sessão; bloqueio no cadastro é verificado nas próximas requisições. Login, privacidade, saúde, arquivos estáticos e endpoints de autenticação permanecem públicos. A sessão continua temporária: reinício/deploy pode exigir novo código.

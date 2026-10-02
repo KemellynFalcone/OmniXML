@@ -15,7 +15,7 @@ def administrator():
 @blueprint.get('/login')
 def login():
     if identity():
-        return redirect('/downloads')
+        return redirect('/')
     return render_template('login.html')
 
 
