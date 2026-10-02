@@ -1,7 +1,7 @@
 import re
 from flask import Blueprint, jsonify, redirect, render_template, request
 from services import client_registry as registry
-from services.email_access import identity, secure_origin
+from services.email_access import identity, secure_origin, captcha_site_key
 from services.traffic_monitor import snapshot
 from services.d1_registry import StorageUnavailable
 
@@ -16,7 +16,7 @@ def administrator():
 def login():
     if identity():
         return redirect('/')
-    return render_template('login.html')
+    return render_template('login.html', captcha_site_key=captcha_site_key(), activating=False)
 
 
 @blueprint.get('/privacy')
@@ -58,12 +58,9 @@ def change_client():
         registry.change(email,action)
     except ValueError as error:
         return jsonify(error=str(error)),400
-    # Expire pending authentication and all existing sessions on block/delete.
     if action in ('block','delete'):
-        from services.email_access import connection
-        with connection() as db:
-            db.execute('DELETE FROM codes WHERE email=?',(email,))
-            db.execute('DELETE FROM sessions WHERE email=?',(email,))
+        from services.password_store import revoke
+        revoke(email, delete=action=='delete')
     return jsonify(ok=True)
 
 
@@ -86,3 +83,27 @@ def storage_unavailable(error):
     response.status_code = 503
     response.headers['Cache-Control'] = 'no-store'
     return response
+
+
+@blueprint.get('/activate')
+def activation_page():
+    return render_template('login.html', captcha_site_key=captcha_site_key(), activating=True)
+
+
+@blueprint.post('/api/admin/password-invite')
+def password_invite():
+    if not administrator() or not secure_origin():
+        return jsonify(error='Acesso restrito.'),403
+    request.max_content_length = 4096
+    data = request.get_json(silent=True)
+    if not isinstance(data, dict):
+        return jsonify(error='Requisição inválida.'),400
+    email = str(data.get('email','')).strip().lower()
+    if len(email)>254 or not re.fullmatch(r'[^\s@]+@[^\s@]+\.[^\s@]+',email):
+        return jsonify(error='E-mail inválido.'),400
+    from services.password_store import invite
+    try:
+        token, expires = invite(email)
+    except ValueError as error:
+        return jsonify(error=str(error)),400
+    return jsonify(url=request.host_url+'activate#'+token, expires=expires, email=email)

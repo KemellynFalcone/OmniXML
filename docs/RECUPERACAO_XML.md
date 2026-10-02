@@ -14,7 +14,7 @@ Somente produção. O aplicativo não envia manifestações ou outros eventos fi
 
 ## Servidor
 
-Instale `requirements-prod.txt` e use `web_app_browser:app`. O portal inteiro exige autenticação individual por código; sem sessão, páginas redirecionam ao login e APIs retornam 401. Configure o provedor de email e o segredo conforme [ACESSO_EMAIL.md](ACESSO_EMAIL.md). A auditoria é executada localmente no navegador depois do login.
+Instale `requirements-prod.txt` e use `web_app_browser:app`. O portal inteiro exige autenticação individual por e-mail e senha; sem sessão, páginas redirecionam ao login e APIs retornam 401. Configure o cadastro D1, o ADM e o segredo conforme [ACESSO_SENHA.md](ACESSO_SENHA.md). A auditoria é executada localmente no navegador depois do login.
 
 No Render use HTTPS e as configurações Gmail/D1 já descritas. `OMNIXML_SEFAZ_TOKEN` é legado: não precisa ser informado pelo cliente e não substitui a sessão na proteção global. O A1 continua necessário para as permissões fiscais. O fluxo de autenticação exige HTTPS também em testes manuais locais; HTTP simples por localhost não contorna o login do portal.
 

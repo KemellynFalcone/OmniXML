@@ -54,8 +54,9 @@ def test_d1_lifecycle_and_bound_values(client,monkeypatch):
 
 @pytest.mark.parametrize('failure',['http','api','query','json','timeout'])
 def test_d1_failures_are_closed_and_sanitized(client,monkeypatch,failure):
-    configure(monkeypatch)
+    monkeypatch.setenv('OMNIXML_ADMIN_EMAILS','admin@example.com')
     login(client,'admin@example.com',monkeypatch)
+    configure(monkeypatch)
     def post(*args,**kwargs):
         if failure=='timeout': raise requests.Timeout('private-token')
         if failure=='json': raise ValueError('private-token')

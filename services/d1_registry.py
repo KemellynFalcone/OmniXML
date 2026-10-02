@@ -16,7 +16,7 @@ def selected():
 
 class Result:
     def __init__(self, result):
-        self.rows = [tuple(row[key] for key in ('email', 'active', 'created') if key in row)
+        self.rows = [tuple(row[key] for key in ('email', 'active', 'created', 'password_hash', 'version') if key in row)
                      for row in result.get('results', [])]
         self.rowcount = result.get('meta', {}).get('changes', 0)
 
