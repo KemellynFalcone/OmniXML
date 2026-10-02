@@ -16,10 +16,12 @@
 <h1 id="access-title">Entre no OmniXML</h1>
 <p class="intro">Seu acesso à auditoria, consultas e XMLs.</p>
 <form id="login-form">
-<label for="access-email">E-mail</label><input id="access-email" type="email" autocomplete="email" placeholder="seu@email.com" maxlength="254" required>
-<button id="access-send" type="button">Enviar código</button>
+<div id="email-step"><label for="access-email">E-mail</label><input id="access-email" type="email" autocomplete="email" placeholder="seu@email.com" maxlength="254" required>
+<button id="access-send" type="submit">Enviar código</button></div>
+<div id="code-step" hidden><p id="code-destination" class="intro"></p>
 <div class="code-field"><label for="access-code">Código de acesso</label><input id="access-code" inputmode="numeric" autocomplete="one-time-code" placeholder="6 dígitos" maxlength="6" pattern="[0-9]{6}"></div>
 <button id="access-verify" type="submit" class="secondary">Entrar</button>
+<button id="change-email" type="button" class="text-button">Usar outro e-mail</button></div>
 <button id="access-logout" type="button" hidden>Sair</button>
 </form>
 <p id="access-message" role="status" aria-live="polite">Verificando acesso…</p>
