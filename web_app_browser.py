@@ -11,6 +11,10 @@ app.request_class = FiscalRequest
 app.register_blueprint(sefaz_blueprint)
 from services.email_access import blueprint as email_blueprint
 app.register_blueprint(email_blueprint)
+from services.admin_routes import blueprint as admin_blueprint
+app.register_blueprint(admin_blueprint)
+from services.traffic_monitor import install as install_monitor
+install_monitor(app)
 
 # Enable only behind a trusted single reverse proxy (e.g. Render).
 if os.environ.get('OMNIXML_TRUST_PROXY') == '1':
