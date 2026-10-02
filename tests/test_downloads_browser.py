@@ -19,7 +19,7 @@ class Element {
   reportValidity(){return true;}
   click(){}
 }
-const ids=['certificate','password','token','uf','keys','results','progress','availability','download','status','clear','stop','zip','recovery-form'];
+const ids=['certificate','password','token','uf','keys','results','progress','availability','download','status','complete','original','clear','stop','zip','recovery-form'];
 const els=Object.fromEntries(ids.map(id=>[id,new Element()]));
 els.certificate.files=[new Blob(['SYNTHETIC'])]; els.uf.value='SP';
 els.keys.value='1'.repeat(44)+'\n'+'2'.repeat(44)+'\n'+'3'.repeat(44)+'\n'+'4'.repeat(44);

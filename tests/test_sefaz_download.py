@@ -34,7 +34,7 @@ def test_supported_keys(model,uf,provider):
     assert fiscal.key_validate(key(model,uf)) == (key(model,uf),provider)
 
 
-@pytest.mark.parametrize('value',['','1'*44,key()[:-1]+'9',key('65','33'),key('57'),key('55','99'),'١'*44])
+@pytest.mark.parametrize('value',['','1'*44,key()[:-1]+'9',key('57'),key('55','99'),'١'*44])
 def test_invalid_or_unsupported_keys(value):
     with pytest.raises(fiscal.RecoveryError):
         fiscal.key_validate(value)
@@ -246,3 +246,28 @@ def test_tampered_public_ca_bundle_rejected(monkeypatch):
         fiscal.load_sp_server_trust(context)
     assert error.value.code == 'ca_bundle'
     context.load_verify_locations.assert_not_called()
+
+
+@pytest.mark.parametrize('uf', fiscal.STATUS_UFS)
+def test_state_status_and_complete_use_key_authorizer(uf):
+    k = key('65', fiscal.UF_CODES[uf])
+    note, protocol = note_and_protocol(k)
+    calls = []
+    class Fake:
+        def query(self, endpoint, operation, msg, version, code):
+            calls.append(endpoint)
+            assert endpoint == fiscal.NFCE_STATUS[k[:2]] and code == k[:2]
+            return envelope('retConsSitNFe', {'cStat':'100','xMotivo':'Autorizada'}, [protocol])
+    provider = fiscal.key_validate(k)[1]
+    assert fiscal.recover(Fake(), k, provider, k[6:20], 'SP', True)[0] is None
+    output = fiscal.recover(Fake(), k, provider, k[6:20], 'SP', original=note)[0]
+    assert fiscal.parse_xml(output)[0].find('{%s}infNFe' % fiscal.NS).get('Id') == 'NFe' + k
+    assert len(calls) == 2
+
+
+def test_other_state_download_rejected_without_network():
+    class Fake:
+        def query(self, *args):
+            pytest.fail('Unexpected network')
+    with pytest.raises(fiscal.RecoveryError):
+        fiscal.recover(Fake(), key('65','29'), 'nfce-state', '12345678000195', 'SP')
