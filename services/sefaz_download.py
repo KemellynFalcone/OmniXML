@@ -20,6 +20,20 @@ NATIONAL = 'https://www1.nfe.fazenda.gov.br/NFeDistribuicaoDFe/NFeDistribuicaoDF
 UF_CODES = {'RO':'11','AC':'12','AM':'13','RR':'14','PA':'15','AP':'16','TO':'17',
             'MA':'21','PI':'22','CE':'23','RN':'24','PB':'25','PE':'26','AL':'27','SE':'28','BA':'29',
             'MG':'31','ES':'32','RJ':'33','SP':'35','PR':'41','SC':'42','RS':'43','MS':'50','MT':'51','GO':'52','DF':'53'}
+# Production endpoints verified against the official SVRS service list (2026-10-02).
+NFCE_STATUS = {
+    '35': SP_STATUS,
+    '13': 'https://nfce.sefaz.am.gov.br/nfce-services/services/NfeConsulta4',
+    '52': 'https://nfe.sefaz.go.gov.br/nfe/services/NFeConsultaProtocolo4',
+    '50': 'https://nfce.sefaz.ms.gov.br/ws/NFeConsultaProtocolo4',
+    '51': 'https://nfce.sefaz.mt.gov.br/nfcews/services/NfeConsulta4',
+    '41': 'https://nfce.sefa.pr.gov.br/nfce/NFeConsultaProtocolo4',
+    '43': 'https://nfce.sefazrs.rs.gov.br/ws/NfeConsulta/NfeConsulta4.asmx',
+    # Bahia publishes SVRS as its NFC-e authorizer.
+    '29': 'https://nfce.svrs.rs.gov.br/ws/NfeConsulta/NfeConsulta4.asmx',
+}
+STATUS_UFS = tuple(uf for uf, code in UF_CODES.items() if code in NFCE_STATUS)
+SERVICE_HOSTS = frozenset(urlsplit(url).hostname for url in (*NFCE_STATUS.values(), NATIONAL))
 MAX_RESPONSE = 20 * 1024 * 1024
 
 
@@ -39,8 +53,8 @@ def key_validate(value):
         raise RecoveryError('Dígito verificador da chave inválido.')
     if key[:2] not in UF_CODES.values():
         raise RecoveryError('UF da chave inválida.')
-    if key[20:22] == '65' and key[:2] == '35':
-        return key, 'nfce-sp'
+    if key[20:22] == '65':
+        return key, 'nfce-sp' if key[:2] == '35' else 'nfce-state'
     if key[20:22] == '55':
         return key, 'nfe-national'
     raise RecoveryError('Cobertura: NF-e (55) nacional e NFC-e (65) de SP. Esta chave ainda não é atendida.', 'unsupported')
@@ -209,7 +223,7 @@ class FiscalClient:
         class BoundedSession(Session):
             def request(self, method, url, **kwargs):
                 address = urlsplit(url)
-                if address.scheme != 'https' or address.hostname not in ('nfce.fazenda.sp.gov.br','www1.nfe.fazenda.gov.br') or address.port not in (None,443):
+                if address.scheme != 'https' or address.hostname not in SERVICE_HOSTS or address.port not in (None,443):
                     raise RecoveryError('Destino de serviço não permitido.')
                 remaining = deadline - time.monotonic()
                 if remaining <= 0:
@@ -313,7 +327,7 @@ def message(name, version, fields):
     return root
 
 
-def recover(client, key, provider, cnpj, uf, status_only=False):
+def recover(client, key, provider, cnpj, uf, status_only=False, original=None):
     if provider == 'nfe-national':
         if status_only:
             raise RecoveryError('Consulta de situação disponível nesta versão para NFC-e/SP.', 'unsupported')
@@ -322,10 +336,23 @@ def recover(client, key, provider, cnpj, uf, status_only=False):
         data = client.query(NATIONAL,'nfeDistDFeInteresse',req,'1.01',UF_CODES[uf])
         return distribution_result(data,key)
     req = message('consSitNFe','4.00',{'tpAmb':'1','xServ':'CONSULTAR','chNFe':key})
-    consultation = returned(client.query(SP_STATUS,'consulta',req,'4.00','35'),'retConsSitNFe')
-    code, reason = service_status(consultation,{'100','150','101','151'})
+    endpoint = NFCE_STATUS.get(key[:2])
+    if endpoint is None:
+        raise RecoveryError('Consulta de NFC-e desta UF ainda está em integração.', 'unsupported')
+    if not status_only and original is None and provider != 'nfce-sp':
+        raise RecoveryError('Para esta UF, envie o XML original para completar o protocolo ou consulte a situação.', 'unsupported')
+    consultation = returned(client.query(endpoint,'consulta',req,'4.00',key[:2]),'retConsSitNFe')
+    code, reason = service_status(consultation,{'100','150','101','151','110','301','302','217','205'})
     if status_only:
         return None, code, reason
+    if original is not None:
+        protocols = consultation.findall('{%s}protNFe' % NS)
+        if len(protocols) != 1:
+            raise RecoveryError('Consulta sem protocolo de autorização. XML final não gerado.')
+        output = processed(original, protocols[0], key)
+        if code in ('101','151'):
+            reason += ' — CANCELADA; autorização original, sem evento de cancelamento.'
+        return output, code, reason
     req = message('nfceDownloadXML','1.00',{'tpAmb':'1','chNFCe':key})
     download = returned(client.query(SP_DOWNLOAD,'download',req,'1.00','35'),'retNfceDownloadXML')
     service_status(download,{'200'})

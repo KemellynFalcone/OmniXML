@@ -163,3 +163,34 @@ def test_verification_code_from_nested_ssl_error_is_safe():
     code, text = routes.connection_diagnostic(error,'wsdl')
     assert code == 'tls_verify' and 'Verificação TLS 20' in text
     assert 'SECRET' not in text
+
+
+@pytest.mark.parametrize('divergent', [False, True])
+def test_complete_original_validates_corresponding_key(browser, a1, monkeypatch, divergent):
+    from lxml import etree
+    from test_sefaz_download import envelope
+    from services import sefaz_download as fiscal
+    k = key('65','29')
+    note, protocol = note_and_protocol(key() if divergent else k)
+    class Fake:
+        def __init__(self,*args): pass
+        def query(self,*args):
+            assert not divergent
+            return envelope('retConsSitNFe',{'cStat':'100','xMotivo':'Autorizada'},[protocol])
+        def close(self): pass
+    monkeypatch.setattr(routes,'FiscalClient',Fake)
+    response = browser.post('/api/sefaz/recover',headers={'Origin':'http://localhost'},data={
+        'certificate':(io.BytesIO(a1),'synthetic.pfx'), 'password':'test-password',
+        'original':(io.BytesIO(etree.tostring(note)),'original.xml'), 'key':k,'uf':'SP','action':'complete'})
+    assert response.status_code == (400 if divergent else 200)
+    if not divergent:
+        assert fiscal.parse_xml(response.data).tag == '{%s}nfeProc' % fiscal.NS
+
+
+def test_state_status_accepts_not_found_without_creating_xml():
+    from test_sefaz_download import envelope
+    from services import sefaz_download as fiscal
+    class Fake:
+        def query(self,*args):
+            return envelope('retConsSitNFe',{'cStat':'217','xMotivo':'Não consta'})
+    assert fiscal.recover(Fake(),key('65','29'),'nfce-state','12345678000195','SP',True) == (None,'217','Não consta')

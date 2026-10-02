@@ -52,3 +52,14 @@ O contexto TLS do A1 carrega explicitamente as autoridades confiáveis do sistem
 ### Cadeia pública ICP-Brasil v10 para NFC-e/SP
 
 O provedor NFC-e/SP carrega também a raiz ICP-Brasil v10 e a intermediária AC SOLUTI SSL EV publicadas no pacote oficial SEFAZ/SP, incluídas em `certs/sefaz-sp-ca.pem`. Fontes, validade e fingerprints estão em `certs/README.md`. Essa cadeia é conferida antes do uso e adicionada apenas ao adapter do host da NFC-e/SP, preservando sistema + Requests, verificação da cadeia e hostname. Não precisa configurar outra variável no Render. O TLS 20 pode persistir se o serviço usar outra raiz ou omitir uma intermediária não incluída; nesse caso, é preciso conferir a cadeia efetivamente servida. O teste operacional com A1 no Render ainda é necessário.
+
+
+## Ampliação de consulta e complemento de protocolo (02/10/2026)
+
+- NFC-e em produção: consulta de situação e complemento do XML original em AM, BA, GO, MS, MT, PR, RS e SP. Endereço escolhido pelo código da UF na chave, independente da UF do titular informada para distribuição nacional.
+- Download completo sem XML original continua somente em SP; demais UFs permanecem em integração.
+- Para completar: informe uma chave, XML original assinado NFe/nfeProc de até 512 KB e A1 do emitente. O servidor confere chave, ambiente, modelo, protocolo autorizado e correspondência do digest. Preserva a nota assinada, sem inventar produtos, tributos ou assinatura. Essa conferência não substitui validação criptográfica completa da assinatura.
+- Uma nota cancelada pode manter o protocolo original de autorização: a interface informa o cancelamento e o arquivo não inclui seu evento.
+- XML original recebe o mesmo tratamento temporário da requisição fiscal: memória, sem acervo ou banco. Nenhuma manifestação ou autorização é enviada.
+- Referências oficiais: https://dfe-portal.svrs.rs.gov.br/NFCE/Servicos e https://www.sefaz.ba.gov.br/inspetoria-eletronica/icms/documentos-fiscais/nota-fiscal-de-consumidor-eletronica/ .
+- Testes automatizados usam dados sintéticos. Conexão mTLS e retorno real precisam ser validados por UF com certificado e documento legítimos; a tabela distingue integração de validação real.

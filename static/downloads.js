@@ -12,7 +12,7 @@
   const cleanup = () => { urls.splice(0).forEach(url => URL.revokeObjectURL(url)); files.clear(); el('zip').disabled = true; };
   const busy = value => {
     running = value;
-    ['download','status','clear','certificate','password','token','uf','keys'].forEach(id => { el(id).disabled = value; });
+    ['download','status','complete','original','clear','certificate','password','token','uf','keys'].forEach(id => { el(id).disabled = value; });
     el('stop').disabled = !value; el('zip').disabled = value || !files.size;
   };
   async function run(action) {
@@ -23,6 +23,7 @@
     if (!keys.length || keys.length > 20 || keys.some(key => !/^[0-9]{44}$/.test(key))) {
       el('progress').textContent = 'Informe de 1 a 20 chaves de 44 dígitos, uma por linha.'; return;
     }
+    if (action === 'complete' && (keys.length !== 1 || !el('original').files[0] || el('original').files[0].size > 512 * 1024)) { el('progress').textContent = 'Para completar o protocolo, informe uma chave e seu XML original de até 512 KB.'; return; }
     cleanup(); el('results').replaceChildren(); stop = false; busy(true);
     try {
       for (const [index,key] of keys.entries()) {
@@ -34,6 +35,7 @@
         row.append(...cells); el('results').append(row);
         const form = new FormData();
         form.append('certificate',certificate); form.append('password',el('password').value);
+        if (action === 'complete') form.append('original',el('original').files[0]);
         form.append('key',key); form.append('uf',el('uf').value); form.append('action',action);
         const headers = el('token').value ? {Authorization:'Bearer '+el('token').value} : {};
         try {
@@ -54,6 +56,7 @@
     } finally { busy(false); }
   }
   el('recovery-form').addEventListener('submit',event => { event.preventDefault(); run('download'); });
+  el('complete').addEventListener('click',() => run('complete'));
   el('status').addEventListener('click',() => run('status'));
   el('stop').addEventListener('click',() => { stop = true; el('progress').textContent = 'A consulta atual será concluída; as próximas foram interrompidas.'; });
   el('clear').addEventListener('click',() => { cleanup(); el('recovery-form').reset(); el('results').replaceChildren(); el('progress').textContent = 'Dados limpos.'; });

@@ -14,7 +14,7 @@ from werkzeug.exceptions import RequestEntityTooLarge
 from services.email_access import configured, identity
 
 from services.sefaz_download import (FiscalClient, RecoveryError, UF_CODES, certificate_cnpj,
-                                    key_validate, recover)
+                                    key_validate, recover, NFCE_STATUS, STATUS_UFS, parse_xml, NS)
 
 class FiscalRequest(Request):
     def _get_file_stream(self, total_content_length, content_type, filename=None, content_length=None):
@@ -46,13 +46,14 @@ def access_allowed():
 
 @blueprint.get('/downloads')
 def downloads():
-    return render_template('downloads.html',ufs=UF_CODES)
+    return render_template('downloads.html',ufs=UF_CODES,status_ufs=STATUS_UFS)
 
 
 @blueprint.get('/api/sefaz/capabilities')
 def capabilities():
     return jsonify(nfe='Distribuição nacional: todas as UFs, conforme permissão do certificado.',
-                   nfce='Download e situação: SP (SAE). Outras UFs ainda não implementadas.',
+                   nfce='Download: SP. Consulta/protocolo: '+', '.join(STATUS_UFS)+'.',
+                   status_ufs=STATUS_UFS,
                    other='CT-e, MDF-e e outros modelos ainda não implementados.',
                    enabled=bool(os.environ.get('OMNIXML_SEFAZ_TOKEN')) or configured() or
                            (request.remote_addr in ('127.0.0.1','::1') and request.host.split(':')[0] in ('localhost','127.0.0.1')))
@@ -117,10 +118,33 @@ def download_xml():
         key, provider = key_validate(request.form.get('key',''))
         uf = request.form.get('uf','').upper()
         action = request.form.get('action','download')
-        if uf not in UF_CODES or action not in ('download','status'):
+        if uf not in UF_CODES or action not in ('download','status','complete'):
             raise RecoveryError('UF do titular ou ação inválida.')
         if provider == 'nfe-national' and action == 'status':
             raise RecoveryError('Consulta de situação disponível nesta versão para NFC-e/SP.', 'unsupported')
+        original = None
+        if provider.startswith('nfce'):
+            if key[:2] not in NFCE_STATUS or (action == 'download' and provider != 'nfce-sp'):
+                raise RecoveryError('Download completo disponível em SP. Use consulta ou envie o XML original nas UFs com integração de protocolo.', 'unsupported')
+        if action == 'complete':
+            if not provider.startswith('nfce'):
+                raise RecoveryError('Completar protocolo disponível para NFC-e nas UFs indicadas.', 'unsupported')
+            source = request.files.get('original')
+            if source is None:
+                raise RecoveryError('Selecione o XML original assinado.')
+            raw = source.read(512 * 1024 + 1)
+            if not raw or len(raw) > 512 * 1024:
+                raise RecoveryError('XML vazio ou maior que 512 KB.')
+            root = parse_xml(raw)
+            if root.tag == '{%s}NFe' % NS:
+                original = root
+            elif root.tag == '{%s}nfeProc' % NS and len(root.findall('{%s}NFe' % NS)) == 1:
+                original = root.find('{%s}NFe' % NS)
+            else:
+                raise RecoveryError('Envie um XML NFe ou nfeProc original.')
+            infos = original.findall('{%s}infNFe' % NS)
+            if len(infos) != 1 or infos[0].get('Id') != 'NFe' + key:
+                raise RecoveryError('XML original não corresponde à chave informada.')
         upload = request.files.get('certificate')
         if upload is None:
             raise RecoveryError('Selecione o certificado A1 (.pfx/.p12).')
@@ -131,8 +155,8 @@ def download_xml():
         if len(password) > 1024:
             raise RecoveryError('Senha excede o limite permitido.')
         cnpj = certificate_cnpj(data,password)
-        if provider == 'nfce-sp' and cnpj != key[6:20]:
-            raise RecoveryError('O SAE de SP exige o certificado do emitente da NFC-e.')
+        if provider.startswith('nfce') and cnpj != key[6:20]:
+            raise RecoveryError('Use o certificado do emitente da NFC-e.')
     except RequestEntityTooLarge:
         return jsonify(error='Envio excede 3 MB.',code='size'),413
     except RecoveryError as exc:
@@ -158,7 +182,10 @@ def download_xml():
         client = None
         try:
             client = FiscalClient(data,password,provider)
-            xml, code, reason = recover(client,key,provider,cnpj,uf,action == 'status')
+            if original is None:
+                xml, code, reason = recover(client,key,provider,cnpj,uf,action == 'status')
+            else:
+                xml, code, reason = recover(client,key,provider,cnpj,uf,False,original=original)
         except RecoveryError as exc:
             if exc.cooldown:
                 _cooldowns[identity] = time.monotonic()+3600
