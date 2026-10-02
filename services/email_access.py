@@ -30,7 +30,8 @@ def configured():
 
 
 def allowed(email):
-    return email in {e.strip().lower() for e in os.environ.get('OMNIXML_ALLOWED_EMAILS', '').split(',') if e.strip()}
+    from services.client_registry import allowed as client_allowed
+    return client_allowed(email)
 
 
 def digest(value):
@@ -44,6 +45,11 @@ def connection():
     db.execute('CREATE TABLE IF NOT EXISTS sessions (value TEXT PRIMARY KEY, email TEXT, expires INTEGER)')
     db.execute('CREATE TABLE IF NOT EXISTS rates (value TEXT PRIMARY KEY, start INTEGER, count INTEGER)')
     try:
+        with db:
+            now = int(time.time())
+            db.execute('DELETE FROM codes WHERE expires<=?', (now,))
+            db.execute('DELETE FROM sessions WHERE expires<=?', (now,))
+            db.execute('DELETE FROM rates WHERE start<?', (now-3600,))
         with db:
             yield db
     finally:
@@ -121,7 +127,8 @@ def limit_body():
 @blueprint.get('/api/access/session')
 def session_state():
     email = identity()
-    return jsonify(configured=configured(), authenticated=bool(email), email=email)
+    from services.client_registry import admins
+    return jsonify(configured=configured(), authenticated=bool(email), email=email, admin=email in admins())
 
 
 @blueprint.post('/api/access/code')
