@@ -36,3 +36,17 @@ XMLs, A1 e senhas continuam no processamento fiscal temporário existente, sem n
 4. Bloquear cliente e confirmar revogação; reativar e exigir novo login.
 5. Confirmar monitor agregado e indicação do worker, sem dados pessoais.
 6. Reimplantar e conferir persistência do cadastro, com nova autenticação se necessário.
+
+
+## Neon / PostgreSQL no Render gratuito
+
+1. Crie um projeto OmniXML no Neon, plano Free.
+2. Abra Connect, selecione conexão com pooling e copie a URI PostgreSQL completa. Preserve `sslmode=require` e `channel_binding=require` quando presentes.
+3. No Render → OmniXML → Environment, adicione `OMNIXML_CLIENTS_DATABASE_URL` com essa URI. Não coloque a URI em prints, mensagens, GitHub ou JavaScript do navegador.
+4. Defina `OMNIXML_ADMIN_EMAILS=omnixml@gmail.com` para deixar explícito o administrador. Mantenha as configurações Gmail existentes.
+5. Salve e faça deploy. Entre em `/login` com o e-mail administrador e abra `/admin`. A tabela é criada automaticamente no primeiro acesso ao cadastro.
+6. Cadastre um e-mail de teste, valide sua entrada, bloqueie e confirme que a sessão perdeu o acesso. Faça um novo deploy e confira que o cadastro permanece.
+
+A URL PostgreSQL tem prioridade sobre OMNIXML_CLIENTS_DB. Não há migração automática de um cadastro SQLite existente. Os e-mails em OMNIXML_ALLOWED_EMAILS continuam como exceções gerenciadas pelo Render: para administrar clientes pelo painel, remova os e-mails desses clientes da variável e cadastre-os no painel. O administrador permanece na variável OMNIXML_ADMIN_EMAILS.
+
+Somente a tabela clients (email, active, created) é persistida no Neon. Códigos e sessões continuam no armazenamento temporário de autenticação; XMLs, certificados, senhas fiscais e métricas não são enviados ao Neon. O serviço de banco pode manter logs e backups próprios, conforme sua configuração e política. A conexão exige TLS e tem timeout de 15 segundos. Use o endpoint com pooling para as conexões curtas do aplicativo.
