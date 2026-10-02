@@ -29,6 +29,16 @@
       } catch { logout.disabled = false; logout.textContent = 'Tentar sair novamente'; }
     });
     bar.append(logout);
+    const workspace = document.querySelector('main');
+    if (workspace) {
+      const credit = document.createElement('footer');
+      credit.className = 'portal-credit';
+      credit.append(document.createTextNode('Desenvolvido por '));
+      const developer = document.createElement('strong');
+      developer.textContent = 'Kasfalcone';
+      credit.append(developer);
+      workspace.append(credit);
+    }
     const sidebar = document.querySelector('#main-sidebar, .app-sidebar');
     if (sidebar) {
       const footer = sidebar.querySelector('.sidebar-footer, #footer-collapsed')?.parentElement;
