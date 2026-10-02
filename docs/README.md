@@ -13,6 +13,14 @@ Esta pasta contém somente a documentação **atual e de consulta recorrente** d
 - [ARQUITETURA_BROWSER_LOCAL.md](./ARQUITETURA_BROWSER_LOCAL.md) — processamento local no navegador.
 - [CNPJ_ALFANUMERICO.md](./CNPJ_ALFANUMERICO.md) — compatibilidade com CNPJ alfanumérico.
 
+## Acesso e recuperação
+
+- [ACESSO_EMAIL.md](./ACESSO_EMAIL.md) — login único, sessão e limites.
+- [GMAIL.md](./GMAIL.md) — envio OAuth, renovação e diagnóstico.
+- [CLIENTES_MONITOR.md](./CLIENTES_MONITOR.md) — painel ADM, D1 e monitor temporário.
+- [RECUPERACAO_XML.md](./RECUPERACAO_XML.md) — recuperação com A1.
+- [COBERTURA_NFCE.md](./COBERTURA_NFCE.md) — cobertura real por modelo e UF.
+
 ## Histórico
 
 A evolução por versão continua disponível em [historico/README.md](./historico/README.md). Esses arquivos não devem ser usados como fonte principal do comportamento atual quando houver um documento consolidado correspondente.

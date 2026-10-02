@@ -113,3 +113,12 @@ def test_configuration_and_invalid_payload(client,monkeypatch):
     monkeypatch.setenv('OMNIXML_AUTH_SECRET','short')
     assert not auth.configured()
     assert post(client,'code',{'email':'admin@example.com'}).status_code == 503
+
+
+def test_resend_cooldown_does_not_disclose_membership(client, monkeypatch):
+    monkeypatch.setattr(auth, 'send_code', lambda *args: None)
+    for email in ('admin@example.com', 'unknown@example.com'):
+        assert post(client, 'code', {'email': email}).status_code == 200
+        response = post(client, 'code', {'email': email})
+        assert response.status_code == 429
+        assert 1 <= int(response.headers['Retry-After']) <= 60

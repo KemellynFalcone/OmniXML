@@ -14,11 +14,11 @@ Somente produção. O aplicativo não envia manifestações ou outros eventos fi
 
 ## Servidor
 
-Instale `requirements-prod.txt`. Em máquina local, execute `flask --app web_app_browser run` e acesse `http://localhost:5000/downloads`. Sem token, somente o endereço real de loopback e host localhost/127.0.0.1 são aceitos; não se usam cabeçalhos de IP encaminhado para liberar esse acesso.
+Instale `requirements-prod.txt` e use `web_app_browser:app`. O portal inteiro exige autenticação individual por código; sem sessão, páginas redirecionam ao login e APIs retornam 401. Configure o provedor de email e o segredo conforme [ACESSO_EMAIL.md](ACESSO_EMAIL.md). A auditoria é executada localmente no navegador depois do login.
 
-Em hospedagem, configure **OMNIXML_SEFAZ_TOKEN** com um segredo forte e use HTTPS. Informe esse mesmo token na página. Essa chave concede acesso ao módulo; a SEFAZ também verifica o A1. Não existe token padrão ou armazenamento no navegador. A recuperação permanece bloqueada remotamente sem o token. Evite compartilhar a chave em ambientes com vários usuários; autenticação individual não está incluída.
+No Render use HTTPS e as configurações Gmail/D1 já descritas. `OMNIXML_SEFAZ_TOKEN` é legado: não precisa ser informado pelo cliente e não substitui a sessão na proteção global. O A1 continua necessário para as permissões fiscais. O fluxo de autenticação exige HTTPS também em testes manuais locais; HTTP simples por localhost não contorna o login do portal.
 
-O `render.yaml` configura um único worker, quatro threads e timeout de 180 s. `OMNIXML_TRUST_PROXY=1` confia em um único proxy somente para o esquema HTTPS; habilite apenas atrás de proxy confiável que substitui `X-Forwarded-Proto`. Hosts e IPs encaminhados não são utilizados. A auditoria permanece disponível sem configurar a recuperação.
+O `render.yaml` configura um único worker, quatro threads e timeout de 180 s. `OMNIXML_TRUST_PROXY=1` confia em um único proxy somente para o esquema HTTPS; habilite apenas atrás de proxy confiável que substitui `X-Forwarded-Proto`. Hosts e IPs encaminhados não são utilizados.
 
 Há uma consulta fiscal ativa por processo, orçamento local de 20 consultas/hora por CNPJ na distribuição nacional e 120/hora no SAE (incluindo situação), além de pausa de uma hora após cStat 137/656. Esses limites locais não substituem as regras da SEFAZ. Sem repetição automática. Interromper lote termina a consulta atual e não inicia as seguintes. Mantenha um worker/uma instância: os controles são em memória; múltiplas instâncias exigem um coordenador compartilhado antes de ativar o módulo.
 

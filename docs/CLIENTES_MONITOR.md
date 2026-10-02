@@ -2,13 +2,13 @@
 
 ## Administração
 
-Abra `/login`, valide seu e-mail e acesse `/admin` pelo link Administração na recuperação. Apenas administradores autenticados podem consultar o cadastro ou monitor. Configure `OMNIXML_ADMIN_EMAILS=omnixml@gmail.com`; quando ausente, o remetente de `OMNIXML_EMAIL_FROM` é usado como administrador inicial. Administradores e e-mails de `OMNIXML_ALLOWED_EMAILS` continuam funcionando e são gerenciados no Render, para evitar exclusão acidental da conta inicial.
+Abra `/login`, valide seu e-mail e acesse `/admin` pelo link Administração no cartão da conta do dashboard. Apenas administradores autenticados podem consultar o cadastro ou monitor. Configure `OMNIXML_ADMIN_EMAILS=omnixml@gmail.com`; quando ausente, o remetente de `OMNIXML_EMAIL_FROM` é usado como administrador inicial. Administradores e e-mails de `OMNIXML_ALLOWED_EMAILS` continuam funcionando e são gerenciados no Render, para evitar exclusão acidental da conta inicial.
 
 O painel libera, bloqueia, reativa e exclui clientes. Guarda somente e-mail, acesso ativo/bloqueado e data de inclusão. Bloqueio/exclusão revogam códigos pendentes e sessões. Não guarda último acesso, IP, CNPJ, documentos, A1 ou senha no cadastro. Administradores não são definidos pelo cadastro de clientes: o papel vem da configuração do servidor.
 
 ## Persistência do cadastro mínimo
 
-Configure `OMNIXML_CLIENTS_DB` com o caminho de um banco SQLite **em disco persistente** (por exemplo `/var/data/clients.sqlite3`, com disco montado em `/var/data`). A pasta deve existir e ser gravável. O painel só permite alterações quando a variável está definida. Não use `/tmp` para a lista definitiva; o aplicativo não consegue verificar se um diretório é realmente persistente.
+Configure `OMNIXML_CLIENTS_DB` com o caminho de um banco SQLite **em disco persistente** (por exemplo `/var/data/clients.sqlite3`, com disco montado em `/var/data`). A pasta deve existir e ser gravável. Para a opção SQLite, o painel só permite alterações quando a variável está definida; D1 e PostgreSQL têm configuração própria abaixo. Não use `/tmp` para a lista definitiva; o aplicativo não consegue verificar se um diretório é realmente persistente.
 
 O arquivo do cadastro é separado de `OMNIXML_AUTH_DB`, que continua efêmero para códigos, sessões e limites de tentativas. Use caminhos diferentes. Deploys podem exigir novo login, mas o cadastro permanece se o disco for persistente. Para várias instâncias, migrar o cadastro para um banco compartilhado; SQLite em disco local é destinado a uma instância com múltiplos workers.
 

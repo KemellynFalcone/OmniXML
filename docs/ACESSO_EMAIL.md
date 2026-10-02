@@ -18,14 +18,14 @@ O visitante informa um e-mail previamente liberado e valida um código de 6 díg
 | `OMNIXML_TRUST_PROXY` | `1` no Render, para reconhecer HTTPS do proxy. |
 | `OMNIXML_AUTH_DB` | Opcional: caminho SQLite. Padrão `/tmp/omnixml-auth.sqlite3`. |
 
-Nenhum segredo é incluído no GitHub. A funcionalidade só é ativada quando a configuração está completa. O token administrativo existente continua disponível em uma seção recolhida; mantenha `OMNIXML_SEFAZ_TOKEN` enquanto configura o e-mail.
+Nenhum segredo é incluído no GitHub. A funcionalidade só é ativada quando a configuração está completa. Todo o portal exige login por código. O token fiscal legado não substitui a sessão e não libera acesso anônimo. O painel administrativo aparece somente para administradores, no cartão da conta na barra lateral.
 
 Use um provedor com remetente verificado e SPF/DKIM configurados conforme suas instruções. O [Render gratuito bloqueia SMTP nas portas 25, 465 e 587](https://render.com/docs/free). O conector Resend já usa HTTPS, com TLS verificado e sem redirecionamento de credenciais. As variáveis SMTP só são necessárias quando o provedor selecionado é `smtp`. Não há envio automático durante testes: o transporte é simulado.
 
 ## Operação
 
 - Remover um e-mail da lista revoga suas sessões no próximo acesso.
-- Até 5 pedidos de código por e-mail/hora, intervalo mínimo de 60 segundos, 30 pedidos e 60 verificações por endereço de origem/hora. No Render, sem encaminhamento confiável de IP, o limite de origem é compartilhado conservadoramente.
+- Até 5 pedidos de código por e-mail/hora, intervalo mínimo de 60 segundos tanto para e-mails liberados como não cadastrados, 30 pedidos e 60 verificações por endereço de origem/hora. No Render, sem encaminhamento confiável de IP, o limite de origem é compartilhado conservadoramente.
 - Códigos e identificadores de sessão são armazenados como HMAC; A1, senha do certificado e XMLs não entram no banco de autenticação.
 - O SQLite funciona entre os workers de uma mesma instância. `/tmp` é efêmero: reinícios/deploys podem exigir novo login. Para várias instâncias, migrar o armazenamento para banco compartilhado antes de escalar.
 - Falhas de entrega produzem um aviso fixo `omnixml_email_delivery_failed` no log, sem e-mail, código ou senha. A resposta pública é genérica para não revelar quais e-mails estão cadastrados.

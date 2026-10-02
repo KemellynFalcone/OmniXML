@@ -191,6 +191,8 @@ def servir_compatibilidade_cnpj_alfanumerico():
 @app.after_request
 def aplicar_cabecalhos_seguranca(response):
     """Camada de hardening HTTP para a interface pública do OmniXML."""
+    if request.is_secure:
+        response.headers['Strict-Transport-Security'] = 'max-age=31536000'
     response.headers['X-Content-Type-Options'] = 'nosniff'
     response.headers['X-Frame-Options'] = 'DENY'
     response.headers['Referrer-Policy'] = 'no-referrer'
